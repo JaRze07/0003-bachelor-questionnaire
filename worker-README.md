@@ -21,7 +21,7 @@ github.com → Settings → Developer settings → **Personal access tokens** �
 **Fine-grained tokens** → Generate new token.
 
 - Resource owner: **JaRze07**
-- Repository access: **Only select repositories** → `Areeb.bachelor`
+- Repository access: **Only select repositories** → `0003-bachelor-questionnaire`
 - Permissions → Repository permissions → **Contents: Read and write**
 - Expiration: short is fine — a week covers the trip
 
@@ -47,7 +47,7 @@ starter, then **Edit code** and paste in all of `worker.js`. Then:
 
 - Settings → **Variables and Secrets** → add secrets `GITHUB_TOKEN` and `PARTY_KEY`
 - Settings → **Variables** → add plain text vars:
-  `REPO_OWNER=JaRze07`, `REPO_NAME=Areeb.bachelor`, `FILE_PATH=results.json`,
+  `REPO_OWNER=JaRze07`, `REPO_NAME=0003-bachelor-questionnaire`, `FILE_PATH=results.json`,
   `BRANCH=main`, `ALLOWED_ORIGIN=https://jarze07.github.io`
 
 Save and deploy. Note the URL, e.g. `https://areeb-bachelor-results.<you>.workers.dev`.

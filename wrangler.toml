@@ -4,7 +4,7 @@ compatibility_date = "2024-11-01"
 
 [vars]
 REPO_OWNER = "JaRze07"
-REPO_NAME = "Areeb.bachelor"
+REPO_NAME = "0003-bachelor-questionnaire"
 FILE_PATH = "results.json"
 BRANCH = "main"
 # Lock writes to the game's own origin. Use "*" only while testing.

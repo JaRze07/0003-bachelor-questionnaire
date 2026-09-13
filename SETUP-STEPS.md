@@ -18,7 +18,7 @@ Once sync is switched on, the first save overwrites whatever is in the repo.
 
 ## Part 1 — upload the files (5 min)
 
-Go to **https://github.com/JaRze07/Areeb.bachelor** → **Add file** → **Upload files**.
+Go to **https://github.com/JaRze07/0003-bachelor-questionnaire** → **Add file** → **Upload files**.
 
 Upload these **6 files** to the repo root:
 
@@ -61,7 +61,7 @@ github.com → **Settings** → **Developer settings** → **Personal access tok
 - Token name: anything, e.g. `bachelor-results`
 - Resource owner: **JaRze07**
 - Expiration: a week is plenty
-- Repository access: **Only select repositories** → `Areeb.bachelor`
+- Repository access: **Only select repositories** → `0003-bachelor-questionnaire`
 - Permissions → **Repository permissions** → find **Contents** → set to **Read and write**
 - Generate, then **copy the token** — GitHub shows it once and never again
 
@@ -91,7 +91,7 @@ Add these five as type **Text**:
 | Name | Value |
 | --- | --- |
 | `REPO_OWNER` | `JaRze07` |
-| `REPO_NAME` | `Areeb.bachelor` |
+| `REPO_NAME` | `0003-bachelor-questionnaire` |
 | `FILE_PATH` | `results.json` |
 | `BRANCH` | `main` |
 | `ALLOWED_ORIGIN` | `https://jarze07.github.io` |
