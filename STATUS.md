@@ -3,7 +3,8 @@
 ## Pending
 
 - Research how the "how well do you know the bride/groom" drinking game is normally played, especially strike-back / counter rules, before writing the spec
-- Write the product spec for the free vs premium split with spec-kit (`/speckit-constitution`, `/speckit-specify`) — see Specification below
+- **Jacek:** decide the five open points in spec §11 (entitlement model, ads in v1, price scope, launch language, spectators in v1)
+- Spec v2 is in `specs/001-bachelor-questionnaire/spec.md`, revised after the Codex critique (`codex-spec-review.md`); next: `/speckit-clarify`, then plan
 - Set up a proper Cloudflare connection (wrangler login) and redeploy the Worker from wrangler.toml
 - Fix the Worker `REPO_NAME` var (still the pre-rename repo name, works only via GitHub redirect)
 - Strip the original party's names and seed rounds from the app, README and questions when the generic version is built
@@ -11,32 +12,12 @@
 
 ## Specification
 
-Today: a static, host-run "how well do you know the partner" bachelor party game on GitHub Pages, built for
-one specific party, with an optional Cloudflare Worker that saves results to the repo. Names of the original
-couple are still hardcoded in the app and README; the generic version below replaces them. Full description and setup: `README.md` in this repo.
+**Bachelor Questionnaire** is a "how well do you know your partner" party game. The partner answers a set of
+questions in advance through a private link; at the party the host asks the guest of honour the same questions,
+reveals the partner's answer, and a wrong answer costs a drink or a dare. Free tier: 20–30 curated questions
+with light ads. Premium (about €1): up to 100 custom questions, penalty schemes, opt-in extra rules. The full
+feature specification (v2, revised after Codex review) follows this overview.
 
-### Product direction (Jacek, 2026-09-13)
-
-Turn the one-off party page into a general **Bachelor Questionnaire** app with a free tier and a cheap premium tier.
-
-**Free version** (with light, non-annoying ads — this is the rule for all JR77 apps):
-- 20–30 ready-made, fairly generic questions.
-- Two links. The **partner link** shows only the questions; the partner types their answers and sees nothing else.
-- The **host link** is the main app: see questions and answers, reveal the next question on a basic screen,
-  answer hidden by default with hide/unhide, mark correct or wrong.
-- Default penalty is **drink or dare**; the host describes the drink (what, how much) or the dare.
-
-**Premium version** (very cheap, about €1):
-- Create and customise your own questions, unlimited.
-- Customise the penalty: drink only, dare only, or something else; define the options.
-- Send the finished form to the partner once the questions are done.
-- Extra rules such as **strike back**: on a correct answer the player can bounce the dare or drink to someone else.
-  Research the usual rules first and adjust.
-
-### Jacek's original notes (verbatim, from the Google Doc tab, 2026-09-13)
-
-> For the bachelor questioner I'm thinking of a free version with some ads, not too annoying ads of course, and that's the case for all the projects. I make the overall MD as well so it never has too annoying ads. The free version would have a basic questioner with ready questions. Let's say 20, 30 ready questions, and then the partner gets the link and they answer the questions. The partner cannot see anything but the questions and they have to type in the answers. The next questions would be pretty generic or whatever and that's what the partner answers. They have the link to get just the answers. The main link or the main part of the app is, of course, where you can see the questions, you can see the answers, and you can take the basic screen to just reveal the next question. By default it's drink or there and you can describe what the drink is, how much they have to drink, or what the there is. You get the questions and by default the answer is hidden but you can unhide it and hide it back and, of course, mark correctly whether it's correct or wrong. I would say in the basic version, the free one, it's 20 questions. In the premium version, which should be very cheap, I would say €1, we have a few more features:
-> You can create and customize your own questions and add as many as you want.
-> You can customize whether it's drink or there or something else. You can customize what the options are or set that it's only there or only drinks.
-> You can, of course, customize the questions and then send the form, once the questions are done, to the partner.
-> I'm just thinking maybe research a bit about this game in general, how it's played. I'm thinking that we could make it so that, I guess, in some cases if he answers correctly or if she answers correctly, then they can strike back, right, or counter this there or drink to someone else. Check how it is done normally and then we can adjust the rules for that but that is included only in the premium version. Something like that.
+What exists today is a hand-built version for one party (static GitHub Pages app, optional Cloudflare Worker
+saving results). It stays the technical baseline; its hardcoded names and seed rounds are removed as part of the
+generalisation. Setup details: `README.md` in this repo.
