@@ -2,8 +2,8 @@
 
 > **Status (2026-09-13):** the Worker that is live today was created by hand in the
 > Cloudflare dashboard from a restaurant, just to make the party work. Its `REPO_NAME`
-> variable still says `Areeb.bachelor` and only works because GitHub redirects the old
-> repo name. **Before resuming work on this project, set up a proper Cloudflare
+> variable still holds the pre-rename repo name and only works because GitHub redirects
+> it. **Before resuming work on this project, set up a proper Cloudflare
 > connection first** — `wrangler login` on this machine, `wrangler deploy` from
 > `wrangler.toml` (which already has the right `REPO_NAME`), secrets via
 > `wrangler secret put`. Ideally this is done once for the whole JR77 workspace

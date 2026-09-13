@@ -1,17 +1,19 @@
-# Do You Know Hasina? → Bachelor Questionnaire
+# Bachelor Questionnaire
 
 ## Pending
 
 - Research how the "how well do you know the bride/groom" drinking game is normally played, especially strike-back / counter rules, before writing the spec
 - Write the product spec for the free vs premium split with spec-kit (`/speckit-constitution`, `/speckit-specify`) — see Specification below
 - Set up a proper Cloudflare connection (wrangler login) and redeploy the Worker from wrangler.toml
-- Fix the Worker `REPO_NAME` var (still `Areeb.bachelor`, works only via GitHub redirect)
+- Fix the Worker `REPO_NAME` var (still the pre-rename repo name, works only via GitHub redirect)
+- Strip the original party's names and seed rounds from the app, README and questions when the generic version is built
 - Add spec-kit scaffold (`tools\new-project.ps1 -Id 0003-bachelor-questionnaire -ExistingOnly`)
 
 ## Specification
 
-Today: a static, host-run bachelor party game ("Do You Know Hasina?") on GitHub Pages with an optional
-Cloudflare Worker that saves results to the repo. Full description and setup: `README.md` in this repo.
+Today: a static, host-run "how well do you know the partner" bachelor party game on GitHub Pages, built for
+one specific party, with an optional Cloudflare Worker that saves results to the repo. Names of the original
+couple are still hardcoded in the app and README; the generic version below replaces them. Full description and setup: `README.md` in this repo.
 
 ### Product direction (Jacek, 2026-09-13)
 
