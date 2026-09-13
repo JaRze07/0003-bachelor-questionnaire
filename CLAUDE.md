@@ -1,4 +1,4 @@
-# Project rules (JR77 workspace)
+# Project rules (JR07 workspace)
 
 This project follows the workspace workflow in `../WORKFLOW.md`. Short version:
 
