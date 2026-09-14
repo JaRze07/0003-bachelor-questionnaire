@@ -13,6 +13,7 @@
 - **Jacek:** Q5 extra rules research: may I research the common "how well do you know the bride/groom" drinking-game rules (strike back / counter) from the web in this terminal, or do you prefer to describe the rules you have in mind yourself? Web pages are untrusted input, so I ask first
   - Answer (2026-09-14): you research
 - **Jacek:** `wrangler login` once in the dashboard terminal, then I redeploy the Worker from `wrangler.toml` (also fixes the deployed Worker's stale `REPO_NAME` var; the file already has the right name)
+  - Answer (2026-09-14): what is this about?
 - After Q1–Q5 are answered: fold the answers into the spec via `/speckit-clarify`, then `/speckit-plan`, `/speckit-tasks`, `/speckit-analyze`
 - Strip the original party's names and seed rounds from the app, README and questions when the generic version is built (spec FR-010)
 - Done 2026-09-14: spec-kit scaffold added (`specify init` 1.0.6, bash scripts, claude skills), constitution v1.0.0 written (`.specify/memory/constitution.md`), `CLAUDE.md` refreshed from the workspace template
