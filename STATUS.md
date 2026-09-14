@@ -2,13 +2,16 @@
 
 ## Pending
 
-- **Jacek:** decide the five open points in spec §11 (entitlement model, ads in v1, price scope, launch language, spectators in v1). Answers go into the spec via `/speckit-clarify`, then `/speckit-plan`.
-- **Jacek:** `wrangler login` once in the dashboard terminal, then redeploy the Worker from `wrangler.toml` (`wrangler deploy`). This also fixes the deployed Worker's stale `REPO_NAME` var (the file already has the right name; only the hand-made dashboard deployment is wrong).
-- Research how the "how well do you know the bride/groom" drinking game is normally played, especially strike-back / counter rules, so spec §10 extra rules can become committed scope. Do this in a default-permission session (web research = untrusted input).
-- Strip the original party's names and seed rounds from the app, README and questions when the generic version is built (spec FR-010).
-
-Done 2026-09-14: spec-kit scaffold added (`specify init` 1.0.6, bash scripts, claude skills), constitution v1.0.0 written (`.specify/memory/constitution.md`), `CLAUDE.md` refreshed from the workspace template.
-Done 2026-09-13: spec v2 in `specs/001-bachelor-questionnaire/spec.md`, revised after the Codex critique (`codex-spec-review.md`).
+- **Jacek:** Q1 entitlement + price scope: (a) premium per game, €1 per game, no account, host recovery code restores the game and its premium on another phone (my pick: keeps "no account" pure); or (b) premium per purchaser, €1 forever, email magic-link login to restore on a new device (Codex's pick)
+- **Jacek:** Q2 ads in v1: (a) launch the free tier without ads, premium prompt only, add banner ads later once there is usage (my pick, less consent/layout work at launch); or (b) banner-only ads on home + scoreboard screens from day one with a consent step
+- **Jacek:** Q3 launch language: (a) English curated set only, Polish later (my pick); or (b) English + Polish curated sets at launch, host picks when creating a game
+- **Jacek:** Q4 spectators in v1: (a) no spectator link, host shares a text/image summary after the game (my pick, Codex agrees); or (b) polling live view, read-only tally refreshing every ~8 s, rounds shown only after the host marks them
+- **Jacek:** Q5 extra rules research: may I research the common "how well do you know the bride/groom" drinking-game rules (strike back / counter) from the web in this terminal, or do you prefer to describe the rules you have in mind yourself? Web pages are untrusted input, so I ask first
+- **Jacek:** `wrangler login` once in the dashboard terminal, then I redeploy the Worker from `wrangler.toml` (also fixes the deployed Worker's stale `REPO_NAME` var; the file already has the right name)
+- After Q1–Q5 are answered: fold the answers into the spec via `/speckit-clarify`, then `/speckit-plan`, `/speckit-tasks`, `/speckit-analyze`
+- Strip the original party's names and seed rounds from the app, README and questions when the generic version is built (spec FR-010)
+- Done 2026-09-14: spec-kit scaffold added (`specify init` 1.0.6, bash scripts, claude skills), constitution v1.0.0 written (`.specify/memory/constitution.md`), `CLAUDE.md` refreshed from the workspace template
+- Done 2026-09-13: spec v2 in `specs/001-bachelor-questionnaire/spec.md`, revised after the Codex critique (`codex-spec-review.md`)
 
 ## Specification
 
