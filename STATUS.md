@@ -9,6 +9,7 @@
 - **Jacek:** Q3 launch language: (a) English curated set only, Polish later (my pick); or (b) English + Polish curated sets at launch, host picks when creating a game
   - Answer (2026-09-14): oh, lets set it in english, german, spanish, portugese, polish, we can add more languages later, use codex for the translations bc they're token heavy - make sure all are properly done with context
 - **Jacek:** Q4 spectators in v1: (a) no spectator link, host shares a text/image summary after the game (my pick, Codex agrees); or (b) polling live view, read-only tally refreshing every ~8 s, rounds shown only after the host marks them
+  - Answer (2026-09-14): we could have a spectator link, automatically refreshed, but it should be a frontend summary only - score, and answered questions so far
 - **Jacek:** Q5 extra rules research: may I research the common "how well do you know the bride/groom" drinking-game rules (strike back / counter) from the web in this terminal, or do you prefer to describe the rules you have in mind yourself? Web pages are untrusted input, so I ask first
 - **Jacek:** `wrangler login` once in the dashboard terminal, then I redeploy the Worker from `wrangler.toml` (also fixes the deployed Worker's stale `REPO_NAME` var; the file already has the right name)
 - After Q1–Q5 are answered: fold the answers into the spec via `/speckit-clarify`, then `/speckit-plan`, `/speckit-tasks`, `/speckit-analyze`
