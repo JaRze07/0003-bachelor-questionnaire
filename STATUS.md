@@ -3,6 +3,7 @@
 ## Pending
 
 - **Jacek:** Q1 entitlement + price scope: (a) premium per game, €1 per game, no account, host recovery code restores the game and its premium on another phone (my pick: keeps "no account" pure); or (b) premium per purchaser, €1 forever, email magic-link login to restore on a new device (Codex's pick)
+  - Answer (2026-09-14): ideally we link it to account - it should be a mobile app, so google play/applestore account and payment also is done in the app itself. the answers for partner can be done as a regular web link, so that the partner doesn't have to download the app. also when more questions are added later , partner should be able to answer as well
 - **Jacek:** Q2 ads in v1: (a) launch the free tier without ads, premium prompt only, add banner ads later once there is usage (my pick, less consent/layout work at launch); or (b) banner-only ads on home + scoreboard screens from day one with a consent step
 - **Jacek:** Q3 launch language: (a) English curated set only, Polish later (my pick); or (b) English + Polish curated sets at launch, host picks when creating a game
 - **Jacek:** Q4 spectators in v1: (a) no spectator link, host shares a text/image summary after the game (my pick, Codex agrees); or (b) polling live view, read-only tally refreshing every ~8 s, rounds shown only after the host marks them
