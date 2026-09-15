@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.env
+.env.*
+*.keystore
+*.jks
+keystore-password.txt
+.firebase/
+firebase-debug.log
+# Capacitor generated
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/capacitor-cordova-android-plugins/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+ios/

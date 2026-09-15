@@ -1,0 +1,29 @@
+{
+  "name": "bachelor-questionnaire",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "JR07 Bachelor Questionnaire: host app (Capacitor), partner form and spectator page (web)",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "web": "node scripts/serve.mjs",
+    "sync-curated": "node scripts/sync-curated.mjs",
+    "cap:sync": "cap sync android",
+    "cap:open": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.2",
+    "@capacitor/app": "8.1.1",
+    "@capacitor/core": "8.5.2",
+    "@capacitor/preferences": "8.0.1",
+    "@capacitor/share": "8.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.2",
+    "fake-indexeddb": "6.2.5",
+    "jsdom": "30.0.1",
+    "vitest": "5.0.0"
+  },
+  "engines": { "node": ">=22" }
+}
