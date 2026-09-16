@@ -1,6 +1,6 @@
 # Tasks: Bachelor Questionnaire
 
-**Status**: everything except the final Codex review (T075) is implemented on the branch; `android/` is generated and committed.
+**Status**: complete. All 43 tasks done, reviewed twice by Codex and merged to `main` on 2026-09-16.
 
 **Input**: `spec.md` v3.1, `plan.md`, `data-model.md`, `contracts/api.md`, `quickstart.md`
 **Branch**: `001-bachelor-questionnaire` (code); docs (spec, STATUS, README) are kept current on the same branch and land on `main` at merge
@@ -81,7 +81,7 @@
 - [x] T072 Translations: Codex read-only prompt with `en.json` (curated + i18n) and per-question context → `de`, `es`, `pt`, `pl`; Claude reviews each for tone, length limits and cultural fit; tests assert identical key sets and id sets
 - [x] T073 Remove the one-party app, its questions and results, the single-file build, the Cloudflare Worker and the old Pages workflow; no personal name from the original party remains anywhere in the repo (SC-007)
 - [x] T074 README rewrite (product, structure, run, deploy API from a PC with gcloud, Hosting deploy, Android release, Play Console setup steps for Jacek, secrets list); STATUS and spec updated in the same commits
-- [ ] T075 Codex read-only review of the branch (`tools/codex-review.sh`), fix real findings, second review, merge to `main`
+- [x] T075 Two Codex read-only reviews (API and web, then a second pass over the fixes); real findings fixed with tests, the rest recorded as debt; merged to `main`
 
 ## Dependencies
 - Phase 2 before any story; T010 before all API routes; T014/T018 before T026.

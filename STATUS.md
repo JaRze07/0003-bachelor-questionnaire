@@ -2,16 +2,16 @@
 
 ## Pending
 
-- Codex review of the branch is running; real findings get fixed, then a second review, then merge to `main`
-- Android: run `npx cap add android` on a machine with the Android SDK (this terminal has no Java), commit `android/`, then tag `v0.1.0` to get a signed APK and AAB from GitHub Actions
-- Deploy: `scripts/deploy.md` has the Cloud Run, Hosting, Scheduler and Pub/Sub commands for project `jr07-0003-bachelor`; the terminal now has gcloud, so I can run them when you want the API live
-- iOS after the Apple developer account exists (Capacitor project, Sign in with Apple, StoreKit verification in the API)
-- **Jacek:** AdMob ad unit ids when you get to it: paste a banner id and an interstitial id here, I put them in the repo variables `AD_UNIT_BANNER` and `AD_UNIT_INTERSTITIAL`. Until then the app uses AdMob test ids
-- **Jacek:** Play Console: after the account exists I need the app created with package `com.jr07.bachelorquestionnaire` and a one-off product `premium_forever` (about €1), plus the Cloud Run service account linked under API access so purchases verify
-- **Jacek:** "scrap the full old github and recreate it fresh" - do you mean deleting the GitHub repo `JaRze07/0003-bachelor-questionnaire` and pushing a fresh one with no history? I have removed every trace of the original party from the working tree, but the old files still exist in past commits. Deleting a repo is irreversible and loses issues and history, so I will not do it without a clear yes. The alternative I can do safely: keep the repo and rewrite history so the old files never appear (needs a force push)
-- Done 2026-09-16: implementation of the whole pipeline on branch `001-bachelor-questionnaire`: Cloud Run API (Hono + Firestore, 38 tests), host app, partner form, spectator page, IndexedDB event journal with lease epoch, AdMob gate, purchases, five languages (Codex translations, reviewed), retention job, CI, Android release workflow, README, and removal of the one-party app (SC-007)
+- **Jacek:** AdMob ad unit ids when you get to them: paste a banner id and an interstitial id here and I put them in the repo variables `AD_UNIT_BANNER` and `AD_UNIT_INTERSTITIAL`. Until then the app uses AdMob test ids
+- **Jacek:** Play Console, once the account exists: create the app with package `com.jr07.bachelorquestionnaire` and a one-off product `premium_forever` (about €1), and link the Cloud Run service account under API access so purchases verify. Also needed: an Android upload keystore, which I can generate and store as repo secrets when you say go
+- **Jacek:** shall I deploy the backend now? `scripts/deploy.md` has every command for project `jr07-0003-bachelor` (Cloud Run, Firestore, Firebase Hosting, the daily retention job). The terminal has gcloud, so I can run them; it costs a few cents a month at this scale and stays under the 50 PLN cap
+- **Jacek:** "scrap the full old github and recreate it fresh" - do you mean deleting the repo `JaRze07/0003-bachelor-questionnaire` and pushing a fresh one with no history? Every trace of the original party is gone from the current code, but the old files still exist in past commits. Deleting a repo is irreversible and loses its history, so I will not do it without a clear yes. The safe alternative is to keep the repo and rewrite history so the old files never appear (a force push)
+- iOS after the Apple developer account exists: Capacitor iOS project, Sign in with Apple, App Store Server notifications in the API
+- Implementation debt recorded in `specs/001-bachelor-questionnaire/codex-review-2.md`: fully transactional event application and cursor pagination for host lists and exports. Not needed at this scale, revisit if the app gets real traffic
+- Done 2026-09-16: **v1 merged to `main`.** API on Cloud Run (Hono + Firestore), host app, partner form, spectator page, IndexedDB event journal with a host lease epoch, offline readiness check, AdMob gate, in-app purchase with a server-side entitlement state machine, retention job, five languages, Capacitor Android project, CI and a signed-release workflow. 93 tests. Two Codex reviews of the code, real findings fixed (see `codex-review-1-api.md`, `codex-review-1-web.md`, `codex-review-2.md`)
+- Done 2026-09-16: the one-party app, its questions and results, the single-file build and the Cloudflare Worker are removed; no original party name remains in the working tree (SC-007)
 - Done 2026-09-15: Q1-Q5 answered, spec v3.1 after two Codex critiques, constitution v2.0.0, plan, data model, API contract, quickstart, 43 tasks
-- Done 2026-09-15: Google Cloud project `jr07-0003-bachelor` created by Jacek from the PC (europe-central2, billing linked, APIs on); gcloud now available in the dashboard terminal
+- Done 2026-09-15: Google Cloud project `jr07-0003-bachelor` created (europe-central2, billing linked, APIs on); gcloud now available in the dashboard terminal
 
 ## Specification
 
