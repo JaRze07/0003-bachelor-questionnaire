@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Bachelor Questionnaire</string>
+    <string name="title_activity_main">Bachelor Questionnaire</string>
+    <string name="package_name">com.jr07.bachelorquestionnaire</string>
+    <string name="custom_url_scheme">com.jr07.bachelorquestionnaire</string>
+</resources>
