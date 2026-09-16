@@ -10,9 +10,9 @@
 
 ## Run locally
 ```bash
-npm ci                              # root: web tests + capacitor
-npm --prefix api ci
-REPO=memory npm --prefix api run dev # API on http://localhost:8080 with in-memory storage and DEV_AUTH=1
+npm ci --legacy-peer-deps            # root: web tests + capacitor
+npm --prefix api ci --legacy-peer-deps
+REPO=memory DEV_AUTH=1 npm --prefix api run dev  # API on http://localhost:8080, in-memory storage
 npm run web                          # static server for web/ on http://localhost:5173 (API_BASE=http://localhost:8080)
 ```
 With `DEV_AUTH=1` the API accepts `Authorization: Bearer dev:<uid>` so the host app can be exercised in a
@@ -21,8 +21,9 @@ grants premium locally; auth: prompt for a dev uid).
 
 ## Automated checks
 ```bash
-npm test                    # web/src/logic + store (vitest, jsdom + fake-indexeddb)
-npm --prefix api test       # API with in-memory repo; emulator suite runs if FIRESTORE_EMULATOR_HOST is set
+npm test                    # 35: game logic, storage journal, sync, translations
+npm --prefix api test       # 38: routes, events, entitlement, retention (in-memory repository)
+npm --prefix api run typecheck
 ```
 
 ## Manual regression checklist (SC-006, run before every release)

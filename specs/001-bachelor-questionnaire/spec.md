@@ -21,9 +21,12 @@ app stores: a **free tier** with curated question sets in five languages and lig
 
 ---
 
-## 2. Baseline: what exists today
+## 2. Baseline: the one-party app (retired 2026-09-16)
 
-Built and working; the generalisation keeps the gameplay and replaces the plumbing.
+The hand-built game for one party was the starting point. Its gameplay is preserved in the new host app; its
+plumbing (GitHub Pages, the Cloudflare Worker writing `results.json`, the single-file build) is gone, together
+with the original party's names, questions and seed rounds. The table below is kept as the record of what had
+to survive the rewrite.
 
 | Area | Current behaviour |
 |---|---|
@@ -38,9 +41,9 @@ Built and working; the generalisation keeps the gameplay and replaces the plumbi
 | Live sync (optional) | Cloudflare Worker with a personal GitHub token commits `results.json`; ~8 s polling; spectators read-only; party key for writes |
 | Single-file build | One offline HTML file |
 
-Weaknesses to remove: hardcoded names, questions and seed rounds; partner cannot enter answers; GitHub repo
-used as a database (token risk, rate limits, slow propagation, last-write-wins); Cloudflare Worker deployed by
-hand without a reproducible login (retired, §9).
+Weaknesses removed: hardcoded names, questions and seed rounds; the partner could not enter answers; the GitHub
+repo was used as a database (token risk, rate limits, slow propagation, last-write-wins); the Cloudflare Worker
+was deployed by hand without a reproducible login.
 
 ---
 
