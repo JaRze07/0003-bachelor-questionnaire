@@ -100,9 +100,8 @@ firebase.json             # Hosting: public web/, only partner/spectator/assets 
 
 **Structure Decision**: mobile + web + API in one repo. `web/` is shared by the Capacitor app and Firebase
 Hosting so the partner and spectator pages reuse styles, i18n and the API client. The old root-level files
-(`app.js`, `index.html`, `styles.css`, `questions.json`, `results.json`, `worker.js`, `wrangler.toml`,
-`worker-README.md`, `debug.html`, `hasina-game-single-file.html`, `build-single-file.py`,
-`original-build-plan.md`, `SETUP-STEPS.md`, `pages.yml`) are removed once `web/` reaches feature parity
+(the one-party app, its questions and results, the single-file build, the Cloudflare Worker and the old
+Pages workflow) are removed once `web/` reaches feature parity
 (FR-006); game-flow code is ported from `app.js`, not rewritten from scratch.
 
 ## Phase 0: Research (resolved)

@@ -43,4 +43,4 @@ Baseline (spec §2), on a phone-sized viewport in the app:
 13b. Two partner pages edit the same answer → the second gets a conflict and shows both values.
 14. Delete game → export offered → game gone, partner link shows "this game no longer exists".
 15. Language: create a game in pl → partner page and spectator page are in Polish; host UI follows the device.
-16. `grep -ri "hasina\|areeb" --exclude-dir=.git .` returns nothing (SC-007).
+16. A search for the original couple's first names over the repo returns nothing (SC-007); the names are kept out of the repo on purpose, so run it from your notes.

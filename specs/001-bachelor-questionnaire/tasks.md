@@ -77,7 +77,7 @@
 - [ ] T070 `api/src/jobs/retention.ts` + `POST /internal/jobs/retention` (warn at 83 d, delete at 90 d); in-app warning banner; tests
 - [ ] T071 Capacitor: `capacitor.config.ts` (appId `com.jr07.bachelorquestionnaire`, webDir `web`), `npx cap add android`, commit `android/`, plugins registered; `.github/workflows/android-release.yml` (JDK 21, SDK 36, `bundleRelease` + `assembleRelease`, sign with repo secrets, attach AAB + APK to the Release on `v*` tags; dispatch = dry run)
 - [ ] T072 Translations: Codex read-only prompt with `en.json` (curated + i18n) and per-question context → `de`, `es`, `pt`, `pl`; Claude reviews each for tone, length limits and cultural fit; tests assert identical key sets and id sets
-- [ ] T073 Remove the old party files (`app.js`, root `index.html`, `styles.css`, `questions.json`, `results.json`, `worker.js`, `wrangler.toml`, `worker-README.md`, `debug.html`, `hasina-game-single-file.html`, `build-single-file.py`, `original-build-plan.md`, `SETUP-STEPS.md`, `pages.yml`); `grep -ri "hasina\|areeb"` empty (SC-007)
+- [x] T073 Remove the one-party app, its questions and results, the single-file build, the Cloudflare Worker and the old Pages workflow; no personal name from the original party remains anywhere in the repo (SC-007)
 - [ ] T074 README rewrite (product, structure, run, deploy API from a PC with gcloud, Hosting deploy, Android release, Play Console setup steps for Jacek, secrets list); STATUS and spec updated in the same commits
 - [ ] T075 Codex read-only review of the branch (`tools/codex-review.sh`), fix real findings, second review, merge to `main`
 
