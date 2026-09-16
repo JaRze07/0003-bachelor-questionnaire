@@ -37,6 +37,14 @@ export function createFirestoreRepo(db = new Firestore({ ignoreUndefinedProperti
       async get(token) { return data<Purchase>(await db.collection('purchases').doc(purchaseKey(token)).get()); },
       async set(p) { await db.collection('purchases').doc(purchaseKey(p.token)).set(p); },
       async listByUid(uid) { return all<Purchase>(db.collection('purchases').where('uid', '==', uid).limit(500)); },
+      async release(token, uid) {
+        const ref = db.collection('purchases').doc(purchaseKey(token));
+        await db.runTransaction(async (trx) => {
+          const snap = await trx.get(ref);
+          const existing = snap.exists ? (snap.data() as Purchase) : null;
+          if (existing && existing.uid === uid && existing.productId === '') trx.delete(ref);
+        });
+      },
       async claim(token, uid) {
         const ref = db.collection('purchases').doc(purchaseKey(token));
         return db.runTransaction(async (trx) => {
@@ -48,14 +56,6 @@ export function createFirestoreRepo(db = new Firestore({ ignoreUndefinedProperti
             trx.create(ref, { token, uid, platform: 'play', productId: '', state: 'pending', boundAt: now, verifiedAt: now } satisfies Purchase);
           }
           return { ok: true as const };
-        });
-      },
-      async release(token, uid) {
-        const ref = db.collection('purchases').doc(purchaseKey(token));
-        await db.runTransaction(async (trx) => {
-          const snap = await trx.get(ref);
-          const existing = snap.exists ? (snap.data() as Purchase) : null;
-          if (existing && existing.uid === uid && existing.productId === '') trx.delete(ref);
         });
       },
     },
@@ -98,14 +98,6 @@ export function createFirestoreRepo(db = new Firestore({ ignoreUndefinedProperti
           if (currentRev !== expectedRev) return { ok: false as const, current };
           trx.set(ref, a);
           return { ok: true as const };
-        });
-      },
-      async release(token, uid) {
-        const ref = db.collection('purchases').doc(purchaseKey(token));
-        await db.runTransaction(async (trx) => {
-          const snap = await trx.get(ref);
-          const existing = snap.exists ? (snap.data() as Purchase) : null;
-          if (existing && existing.uid === uid && existing.productId === '') trx.delete(ref);
         });
       },
       async delete(gameId, qid) { await col(gameId, 'answers').doc(qid).delete(); },

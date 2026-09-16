@@ -35,6 +35,10 @@ export function createMemoryRepo(): Repo & { dump(): unknown } {
       async get(token) { return clone(purchases.get(token) ?? null); },
       async set(p) { purchases.set(p.token, clone(p)); },
       async listByUid(uid) { return clone([...purchases.values()].filter((p) => p.uid === uid)); },
+      async release(token, uid) {
+        const existing = purchases.get(token);
+        if (existing && existing.uid === uid && existing.productId === '') purchases.delete(token);
+      },
       async claim(token, uid) {
         const existing = purchases.get(token);
         if (existing && existing.uid !== uid) return { ok: false, uid: existing.uid };
@@ -42,10 +46,6 @@ export function createMemoryRepo(): Repo & { dump(): unknown } {
           purchases.set(token, { token, uid, platform: 'play', productId: '', state: 'pending', boundAt: new Date().toISOString(), verifiedAt: new Date().toISOString() });
         }
         return { ok: true };
-      },
-      async release(token, uid) {
-        const existing = purchases.get(token);
-        if (existing && existing.uid === uid && existing.productId === '') purchases.delete(token);
       },
     },
     games: {
@@ -81,10 +81,6 @@ export function createMemoryRepo(): Repo & { dump(): unknown } {
         if (currentRev !== expectedRev) return { ok: false, current: clone(current) };
         b.set(a.questionId, clone(a));
         return { ok: true };
-      },
-      async release(token, uid) {
-        const existing = purchases.get(token);
-        if (existing && existing.uid === uid && existing.productId === '') purchases.delete(token);
       },
       async delete(gameId, qid) { bucket(answers, gameId).delete(qid); },
     },
