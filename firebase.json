@@ -1,0 +1,24 @@
+{
+  "hosting": {
+    "public": "web",
+    "ignore": ["**/.*", "**/node_modules/**", "**/test/**"],
+    "cleanUrls": true,
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          { "key": "Referrer-Policy", "value": "no-referrer" },
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "Content-Security-Policy", "value": "default-src 'self'; connect-src 'self' https://*.run.app; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'" }
+        ]
+      },
+      {
+        "source": "/(partner|spectator).html",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-store" },
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      }
+    ]
+  }
+}
