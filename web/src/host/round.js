@@ -1,16 +1,40 @@
 // The round flow: penalty setup, question, verdict, penalty screen, strike back, scoreboard, fix-up.
 import { $, confirmModal, el, on, show, timeAgo, toast } from './ui.js';
-import { premium, state, sync } from './state.js';
-import { append, uuid } from '../store/journal.js';
+import { premium, setSnapshot, state, sync } from './state.js';
+import { appendMany, uuid } from '../store/journal.js';
 import { answerFor, chooseNext, playable } from '../logic/queue.js';
 import { penaltyOptions } from '../logic/penalties.js';
 import { outcome } from '../logic/rules.js';
 import { renumber, summaryText, tally } from '../logic/scoring.js';
-import { maybeInterstitial, syncBanner } from '../native/ads.js';
+import { maybeInterstitial } from '../native/ads.js';
 import { downloadJson, share } from '../native/device.js';
 
 let filter = 'all';
 let chosenPenalty = null;
+let busy = false;
+
+/**
+ * One journal write per user action. The screen may only move after the transaction commits, and the
+ * snapshot it produced becomes the in-memory copy (nothing else is a correct view of the game).
+ * `busy` makes a double tap a no-op instead of a second round or a second verdict.
+ */
+async function commit(entries, buttons = []) {
+  if (busy) return null;
+  busy = true;
+  for (const id of buttons) { const node = $(id); if (node) node.disabled = true; }
+  try {
+    const { snapshot } = await appendMany(snap().gameId, entries);
+    setSnapshot(snapshot);
+    return snapshot;
+  } catch (err) {
+    console.error('could not record the action', err);
+    toast(err.message === 'read_only' ? t('game.readOnly') : t('error.generic'));
+    return null;
+  } finally {
+    busy = false;
+    for (const id of buttons) { const node = $(id); if (node) node.disabled = false; }
+  }
+}
 
 const snap = () => state.snapshot;
 const t = (...a) => state.t(...a);
@@ -75,6 +99,7 @@ function refreshReveal() {
 async function reveal() {
   const s = snap();
   const d = state.draft;
+  if (!d || !chosenPenalty) return;
   d.penalty = {
     type: chosenPenalty.type,
     label: chosenPenalty.type === 'custom' ? chosenPenalty.label : t(`penalty.${chosenPenalty.type}`),
@@ -89,27 +114,26 @@ async function reveal() {
     penaltyScheme: s.game.settings.penaltyScheme,
     rules: { ...s.game.settings.rules },
   };
-  try {
-    await append(s.gameId, 'round.start', { roundId: d.roundId, questionId: d.questionId, penalty: d.penalty, frozen }, (snapshot) => {
+  // The start and the doubling are one action for the host, so they are one transaction.
+  const entries = [{
+    type: 'round.start',
+    payload: { roundId: d.roundId, questionId: d.questionId, penalty: d.penalty, frozen },
+    mutate: (snapshot) => {
       snapshot.rounds = snapshot.rounds ?? [];
+      if (snapshot.rounds.some((r) => r.id === d.roundId)) return;
       snapshot.rounds.push({
         id: d.roundId, n: snapshot.rounds.filter((r) => r.result !== 'unplayed').length + 1,
         questionId: d.questionId, frozen, epoch: snapshot.epoch, penalty: d.penalty,
-        result: 'unplayed', doubled: false, strikeBack: [], startedAt: new Date().toISOString(),
+        result: 'unplayed', started: true, doubled: Boolean(d.doubled), strikeBack: [],
+        startedAt: new Date().toISOString(),
       });
       snapshot.currentRoundId = d.roundId;
-    });
-    if (d.doubled) {
-      await append(s.gameId, 'round.double', { roundId: d.roundId }, (snapshot) => {
-        const round = snapshot.rounds.find((r) => r.id === d.roundId);
-        if (round) round.doubled = true;
-      });
-    }
-  } catch (err) {
-    toast(t('error.generic'));
-    console.error('could not record the round start', err);
-    return;
+    },
+  }];
+  if (d.doubled) {
+    entries.push({ type: 'round.double', payload: { roundId: d.roundId }, mutate: () => {} });
   }
+  if (!(await commit(entries, ['btn-reveal']))) return;
   renderQuestion();
   show('question');
   sync().catch(() => {});
@@ -129,21 +153,21 @@ function renderQuestion() {
 /* ---------- verdict ---------- */
 
 async function judge(result) {
-  const s = snap();
   const d = state.draft;
-  try {
-    await append(s.gameId, 'round.mark', { roundId: d.roundId, result }, (snapshot) => {
+  if (!d) return;
+  const updated = await commit([{
+    type: 'round.mark',
+    payload: { roundId: d.roundId, result },
+    mutate: (snapshot) => {
       const round = snapshot.rounds.find((r) => r.id === d.roundId);
-      if (round) { round.result = result; round.markedAt = new Date().toISOString(); }
+      if (round && round.result === 'unplayed') { round.result = result; round.markedAt = new Date().toISOString(); }
       snapshot.currentRoundId = null;
-    });
-  } catch (err) {
-    toast(t('error.generic'));
-    console.error('could not record the verdict', err);
-    return;
-  }
+    },
+  }], ['btn-correct', 'btn-wrong']);
+  if (!updated) return;
   sync().catch(() => {});
-  const round = s.rounds.find((r) => r.id === d.roundId);
+  const round = updated.rounds.find((r) => r.id === d.roundId);
+  if (!round) { finishRound(); return; }
   const next = outcome(round);
   if (next.showPenalty) {
     $('penalty-kicker').textContent = d.penalty.label;
@@ -170,21 +194,39 @@ function renderStrike(maxGuests) {
 
 async function confirmStrike() {
   const d = state.draft;
+  if (!d) return;
   const guest = $('strike-guest').value.trim().slice(0, 40);
   if (!guest) { finishRound(); return; }
-  await append(snap().gameId, 'round.strikeBack', { roundId: d.roundId, guest }, (snapshot) => {
-    const round = snapshot.rounds.find((r) => r.id === d.roundId);
-    if (round) round.strikeBack = [...(round.strikeBack ?? []), { guest }];
-  });
-  $('penalty-kicker').textContent = t('round.strikeBack');
-  $('penalty-text').textContent = t('round.penaltyFor', { guest, penalty: d.penalty.description });
+  const updated = await commit([{
+    type: 'round.strikeBack',
+    payload: { roundId: d.roundId, guest },
+    mutate: (snapshot) => {
+      const round = snapshot.rounds.find((r) => r.id === d.roundId);
+      if (!round) return;
+      const max = outcome(round).maxGuests;
+      round.strikeBack = round.strikeBack ?? [];
+      if (round.strikeBack.length < max) round.strikeBack.push({ guest });
+    },
+  }], ['btn-strike-ok']);
+  if (!updated) return;
   sync().catch(() => {});
+  const round = updated.rounds.find((r) => r.id === d.roundId);
+  const names = (round?.strikeBack ?? []).map((g) => g.guest);
+  // A doubled correct answer may be handed to two guests: stay on the screen until they are named.
+  if (round && names.length < outcome(round).maxGuests) {
+    $('strike-guest').value = '';
+    renderStrike(outcome(round).maxGuests);
+    toast(t('round.strikeBackNames', { names: names.join(', ') }));
+    return;
+  }
+  $('penalty-kicker').textContent = t('round.strikeBack');
+  $('penalty-text').textContent = t('round.penaltyFor', { guest: names.join(', '), penalty: d.penalty.description });
   show('penalty');
 }
 
 export function finishRound() {
   state.draft = null;
-  if (!pool().length) { renderScoreboard(); show('scoreboard'); syncBanner('scoreboard', premium()); return; }
+  if (!pool().length) { renderScoreboard(); show('scoreboard'); return; }
   startRound();
 }
 
@@ -248,13 +290,18 @@ function downloadResults() {
 async function finishGame() {
   const ok = await confirmModal(t, { title: t('score.finish'), body: t('score.finishConfirm'), confirmLabel: t('score.finish') });
   if (!ok) return;
-  await append(snap().gameId, 'game.finish', {}, (snapshot) => {
-    snapshot.game = { ...snapshot.game, status: 'finished', finishedAt: new Date().toISOString() };
-  });
-  await sync().catch(() => {});
+  const updated = await commit([{
+    type: 'game.finish',
+    payload: {},
+    mutate: (snapshot) => {
+      snapshot.game = { ...snapshot.game, status: 'finished', finishedAt: new Date().toISOString() };
+    },
+  }], ['btn-finish']);
+  if (!updated) return;
   toast(t('status.finished'));
   renderScoreboard();
-  await maybeInterstitial('scoreboard_closed', premium());
+  sync().catch(() => {});          // the party does not wait for the upload
+  maybeInterstitial('scoreboard_closed', premium()).catch(() => {});
 }
 
 /* ---------- fix results ---------- */
@@ -284,19 +331,29 @@ export function renderFixup() {
 }
 
 async function setResult(question, round, result) {
-  const s = snap();
   const roundId = round?.id ?? uuid();
-  await append(s.gameId, 'round.fixup', { roundId, questionId: question.id, result }, (snapshot) => {
+  const updated = await commit([{
+    type: 'round.fixup',
+    payload: { roundId, questionId: question.id, result },
+    mutate: (snapshot) => {
     const existing = snapshot.rounds.find((r) => r.id === roundId);
-    if (existing) { existing.result = result; existing.markedAt = new Date().toISOString(); return; }
+    if (existing) {
+      existing.result = result;
+      // Voided: the question goes back into the queue; a merely started round still holds its question.
+      existing.voided = result === 'unplayed';
+      existing.markedAt = new Date().toISOString();
+      return;
+    }
     if (result === 'unplayed') return;
     snapshot.rounds.push({
       id: roundId, n: snapshot.rounds.length + 1, questionId: question.id,
       frozen: { questionRev: question.rev, text: question.text, theme: question.theme, answer: answerFor(question, snapshot.answers ?? {}), penaltyScheme: snapshot.game.settings.penaltyScheme, rules: { ...snapshot.game.settings.rules } },
       epoch: snapshot.epoch, penalty: { type: 'none', label: '', description: '' },
-      result, doubled: false, strikeBack: [], startedAt: new Date().toISOString(), markedAt: new Date().toISOString(),
+      result, started: true, doubled: false, strikeBack: [], startedAt: new Date().toISOString(), markedAt: new Date().toISOString(),
     });
-  });
+    },
+  }]);
+  if (!updated) return;
   sync().catch(() => {});
   renderFixup();
 }

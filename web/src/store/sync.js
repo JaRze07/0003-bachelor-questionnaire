@@ -1,5 +1,5 @@
 // Uploads the journal, drains the outbox, folds in partner answers. Never overwrites accepted local events.
-import { dropOutbox, listOutbox, markAcked, moveToDivergent, pendingEvents, saveGame } from './journal.js';
+import { dropOutbox, listOutbox, markAcked, mergeServer, moveToDivergent, pendingEvents, saveGame } from './journal.js';
 
 export const OFFLINE = 'offline';
 
@@ -22,19 +22,20 @@ export async function pushEvents(api, snapshot) {
     // forever, and reported so the host sees that a round did not reach the server.
     const rejected = (res.rejected ?? []).map((r) => r.id);
     if (rejected.length) await moveToDivergent(snapshot.gameId, events.filter((e) => rejected.includes(e.id)));
-    snapshot.answers = { ...snapshot.answers, ...(res.partnerAnswers ?? {}) };
-    snapshot.revision = res.revision ?? snapshot.revision;
-    snapshot.lastServerSync = new Date().toISOString();
-    await saveGame(snapshot);
-    return { status: 'synced', snapshot };
+    // Merge into the row as it stands now: a round may have been played during the request.
+    const merged = await mergeServer(snapshot.gameId, {
+      answers: { ...snapshot.answers, ...(res.partnerAnswers ?? {}) },
+      revision: res.revision ?? snapshot.revision,
+      lastServerSync: new Date().toISOString(),
+      rejectedEvents: rejected.length ? (snapshot.rejectedEvents ?? 0) + rejected.length : snapshot.rejectedEvents,
+    });
+    return { status: 'synced', snapshot: merged ?? snapshot, rejected };
   } catch (err) {
     if (err.offline) return { status: OFFLINE, snapshot };
     if (err.code === 'stale_epoch' || err.code === 'not_lease_holder') {
       await moveToDivergent(snapshot.gameId, events);
-      snapshot.readOnly = true;
-      snapshot.epoch = err.details?.epoch ?? snapshot.epoch;
-      await saveGame(snapshot);
-      return { status: 'stale_epoch', snapshot };
+      const merged = await mergeServer(snapshot.gameId, { readOnly: true, epoch: err.details?.epoch ?? snapshot.epoch });
+      return { status: 'stale_epoch', snapshot: merged ?? snapshot };
     }
     return { status: 'error', snapshot, error: err };
   }
@@ -59,8 +60,7 @@ export async function drainOutbox(api) {
 export async function pullGame(api, snapshot) {
   const server = await api.get(`/games/${snapshot.gameId}`);
   const pending = await pendingEvents(snapshot.gameId);
-  const merged = {
-    ...snapshot,
+  const fields = {
     game: server.game,
     questions: server.questions,
     answers: server.answers,
@@ -68,7 +68,7 @@ export async function pullGame(api, snapshot) {
     revision: server.revision,
     lastServerSync: new Date().toISOString(),
   };
-  if (!pending.length) merged.rounds = server.rounds;
-  await saveGame(merged);
-  return merged;
+  // Local rounds win while anything is still unsent: the party-time journal is the source of truth.
+  if (!pending.length) fields.rounds = server.rounds;
+  return (await mergeServer(snapshot.gameId, fields)) ?? { ...snapshot, ...fields };
 }

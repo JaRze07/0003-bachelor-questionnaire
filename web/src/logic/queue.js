@@ -1,10 +1,14 @@
 // Pure question-queue logic. No DOM, no storage.
 
-/** Questions that can still be played: not hidden, not already used by a marked/started round. */
+/**
+ * Questions that can still be played: not hidden, and not held by a round. A round holds its question
+ * once it has started, so an interrupted round is not served again; only an explicit fix-up back to
+ * "unplayed" (`voided`) returns the question to the queue.
+ */
 export function unplayed(questions, rounds, hiddenIds = []) {
   const hidden = new Set(hiddenIds);
-  const used = new Set(rounds.filter((r) => r.result !== 'unplayed').map((r) => r.questionId));
-  return questions.filter((q) => !hidden.has(q.id) && !used.has(q.id)).sort((a, b) => a.order - b.order);
+  const held = new Set(rounds.filter((r) => !r.voided && (r.started || r.result !== 'unplayed')).map((r) => r.questionId));
+  return questions.filter((q) => !hidden.has(q.id) && !held.has(q.id)).sort((a, b) => a.order - b.order);
 }
 
 /** The answer to reveal: partner's for the current revision, else the host-supplied one. */

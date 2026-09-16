@@ -66,6 +66,7 @@ export async function renderQuestions() {
 
 async function patchGame(body) {
   const s = snap();
+  if (s.readOnly) { toast(t('game.readOnly')); return false; }
   try {
     const res = await state.api.patch(`/games/${s.gameId}`, body);
     s.game = res.game;
@@ -201,6 +202,7 @@ function renderCustomPenalties() {
 
 async function saveSettings(partial) {
   const s = snap();
+  if (!premium() && ('penaltyScheme' in partial || 'rules' in partial)) { toast(t('questions.editPremium')); renderSettings(); return; }
   const settings = { ...s.game.settings, ...partial };
   if (!validateCustomList(settings.customPenalties ?? [])) { toast(t('error.generic')); return; }
   if (await patchGame({ settings })) renderSettings();

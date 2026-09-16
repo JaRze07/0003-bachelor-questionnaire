@@ -99,3 +99,15 @@ describe('ad gate', () => {
     expect(addActive({ activeSeconds: 5 }, -3).activeSeconds).toBe(5);
   });
 });
+
+describe('queue after the Codex review', () => {
+  const qs = [q('a', 10), q('b', 20)];
+  it('keeps a started round holding its question', () => {
+    const rounds = [{ questionId: 'a', result: 'unplayed', started: true }];
+    expect(unplayed(qs, rounds).map((x) => x.id)).toEqual(['b']);
+  });
+  it('returns the question only when the round is voided', () => {
+    const rounds = [{ questionId: 'a', result: 'unplayed', started: true, voided: true }];
+    expect(unplayed(qs, rounds).map((x) => x.id)).toEqual(['a', 'b']);
+  });
+});

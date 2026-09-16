@@ -13,12 +13,27 @@ let t = null;
 let etag = null;
 let lastOk = 0;
 let timer = null;
+let stopped = false;
+let polling = false;
+let lastRevision = -1;
+
+/** Self-scheduling: the next poll starts only after this one settles, so requests never overlap. */
+function schedule(ms = POLL_MS) {
+  clearTimeout(timer);
+  if (stopped) return;
+  timer = setTimeout(() => { poll().catch(() => schedule()); }, ms);
+}
 
 async function poll(first = false) {
-  if (document.visibilityState !== 'visible' && !first) return;
+  if (stopped || polling) return;
+  if (document.visibilityState !== 'visible' && !first) { schedule(); return; }
+  polling = true;
   try {
     const res = await api.get('/s/summary', etag ? { 'If-None-Match': etag } : undefined);
     if (res.status === 304) { lastOk = Date.now(); markStale(); return; }
+    // An older response must never replace a newer score.
+    if (typeof res.revision === 'number' && res.revision < lastRevision) return;
+    lastRevision = res.revision ?? lastRevision;
     etag = res.__etag ?? etag;
     lastOk = Date.now();
     if (!t) {
@@ -30,8 +45,11 @@ async function poll(first = false) {
     }
     render(res);
   } catch (err) {
-    if (err.status === 404 || err.status === 410) return gone();
+    if (err.status === 404 || err.status === 410) { gone(); return; }
     markStale();
+  } finally {
+    polling = false;
+    schedule();
   }
 }
 
@@ -64,16 +82,19 @@ function markStale() {
 }
 
 function gone() {
-  clearInterval(timer);
+  stopped = true;
+  clearTimeout(timer);
+  document.removeEventListener('visibilitychange', onVisible);
   $('board').hidden = true;
   const box = $('gone');
   box.hidden = false;
   box.textContent = t ? t('spectator.gone') : 'This link is no longer available.';
 }
 
+function onVisible() { if (document.visibilityState === 'visible') poll(true).catch(() => schedule()); }
+
 if (!token) gone();
 else {
-  poll(true);
-  timer = setInterval(poll, POLL_MS);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') poll(true); });
+  document.addEventListener('visibilitychange', onVisible);
+  poll(true).catch(() => schedule());
 }

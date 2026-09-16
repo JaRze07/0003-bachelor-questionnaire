@@ -15,24 +15,51 @@ export async function saveGame(snapshot) {
 }
 
 /**
- * Append one event and apply `mutate(snapshot, event)` in the same transaction.
- * Returns { snapshot, event }; throws (and writes nothing) if IndexedDB refuses.
+ * Append one or more events and apply their mutations in a single transaction, always against the row as it
+ * is stored right now. Returns { snapshot, events }: the caller MUST adopt the returned snapshot, it is the
+ * only correct copy. Throws and writes nothing if IndexedDB refuses or the device is read-only.
+ *
+ * `entries` = [{ type, payload, mutate }]. `append` keeps the one-event shape for readability.
  */
-export async function append(gameId, type, payload, mutate) {
+export async function appendMany(gameId, entries) {
   return tx(['games', 'events'], 'readwrite', async (s, _t, w) => {
     const snapshot = await w(s.games.get(gameId));
     if (!snapshot) throw new Error('game_not_local');
-    const seq = (snapshot.localSeq ?? 0) + 1;
-    const event = {
-      id: uuid(), gameId, seq, epoch: snapshot.epoch ?? 1, type,
-      at: new Date().toISOString(), payload, acked: 0,
-    };
-    snapshot.localSeq = seq;
-    if (mutate) mutate(snapshot, event);
-    snapshot.updatedLocallyAt = event.at;
-    await w(s.events.put(event));
+    if (snapshot.readOnly) throw new Error('read_only');
+    const events = [];
+    for (const entry of entries) {
+      const seq = (snapshot.localSeq ?? 0) + 1;
+      const event = {
+        id: uuid(), gameId, seq, epoch: snapshot.epoch ?? 1, type: entry.type,
+        at: new Date().toISOString(), payload: entry.payload ?? {}, acked: 0,
+      };
+      snapshot.localSeq = seq;
+      if (entry.mutate) entry.mutate(snapshot, event);
+      snapshot.updatedLocallyAt = event.at;
+      await w(s.events.put(event));
+      events.push(event);
+    }
     await w(s.games.put(snapshot));
-    return { snapshot, event };
+    return { snapshot, events };
+  });
+}
+
+export async function append(gameId, type, payload, mutate) {
+  const { snapshot, events } = await appendMany(gameId, [{ type, payload, mutate }]);
+  return { snapshot, event: events[0] };
+}
+
+/**
+ * Merge server-owned fields into the stored row inside one transaction, so a round committed during the
+ * request is never overwritten by a snapshot captured before it.
+ */
+export async function mergeServer(gameId, fields) {
+  return tx('games', 'readwrite', async (s, _t, w) => {
+    const current = await w(s.games.get(gameId));
+    if (!current) return null;
+    const merged = { ...current, ...fields };
+    await w(s.games.put(merged));
+    return merged;
   });
 }
 

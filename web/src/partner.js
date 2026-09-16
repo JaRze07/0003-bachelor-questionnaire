@@ -10,9 +10,24 @@ let t = null;
 let game = null;
 let index = 0;
 let listView = false;
-let saveTimer = null;
-let saving = new Map();       // questionId -> 'saving' | 'saved' | 'offline'
+
+/**
+ * One record per question: the text the partner typed (`draft`, which survives a failed save), the debounce
+ * timer, whether a request is in flight and a generation counter so a slow response cannot overwrite newer
+ * typing. Saves for a question are serialised; the latest draft is sent after the current request finishes.
+ */
+const saves = new Map();      // questionId -> { draft, timer, inFlight, generation, state }
 const revs = new Map();       // questionId -> answer revision we last saw
+
+function record(id) {
+  let r = saves.get(id);
+  if (!r) { r = { draft: null, timer: null, inFlight: false, generation: 0, state: '' }; saves.set(id, r); }
+  return r;
+}
+const draftOf = (q) => {
+  const r = saves.get(q.id);
+  return r && r.draft !== null ? r.draft : (game.answers?.[q.id]?.text ?? '');
+};
 
 const questions = () => game?.questions ?? [];
 const current = () => questions()[index];
@@ -55,8 +70,13 @@ function applyLabels(newCount) {
 }
 
 function answeredCount() {
-  return questions().filter((q) => (game.answers?.[q.id]?.text ?? '').trim() && game.answers[q.id].questionRev === q.rev).length;
+  return questions().filter((q) => {
+    const stored = game.answers?.[q.id];
+    return Boolean(stored && stored.questionRev === q.rev && (stored.text ?? '').trim());
+  }).length;
 }
+
+const pendingSaves = () => [...saves.values()].some((r) => r.timer || r.inFlight || r.state === 'offline');
 
 function render() {
   const total = questions().length;
@@ -76,11 +96,13 @@ function renderOne() {
   $('q-theme').textContent = q.theme ?? '';
   $('q-text').textContent = q.text;
   const box = $('q-answer');
-  box.value = game.answers?.[q.id]?.text ?? '';
+  // Never replace what the partner is typing: the draft wins over the stored answer.
+  const wanted = draftOf(q);
+  if (document.activeElement !== box || box.value !== wanted) box.value = wanted;
   box.disabled = Boolean(game.readOnly);
   $('q-count').textContent = String(box.value.length);
   $('save-state').textContent = stateLabel(q.id);
-  $('save-state').className = `save-state save-${saving.get(q.id) ?? ''}`;
+  $('save-state').className = `save-state save-${record(q.id).state}`;
   $('btn-prev').disabled = index === 0;
   $('btn-next').disabled = index >= questions().length - 1;
 }
@@ -94,12 +116,12 @@ function renderList() {
     card.appendChild(el('p', 'a-question', q.text));
     const input = document.createElement('textarea');
     input.rows = 2; input.maxLength = 500; input.className = 'field';
-    input.value = game.answers?.[q.id]?.text ?? '';
+    input.value = draftOf(q);
     input.disabled = Boolean(game.readOnly);
     input.addEventListener('input', () => queueSave(q, input.value));
-    input.addEventListener('blur', () => flush(q, input.value));
+    input.addEventListener('blur', () => { flush(q, input.value).catch(() => {}); });
     card.appendChild(input);
-    const status = el('p', `save-state save-${saving.get(q.id) ?? ''}`, stateLabel(q.id));
+    const status = el('p', `save-state save-${record(q.id).state}`, stateLabel(q.id));
     status.id = `state-${q.id}`;
     card.appendChild(status);
     card.addEventListener('dblclick', () => { index = i; listView = false; render(); });
@@ -108,7 +130,7 @@ function renderList() {
 }
 
 function stateLabel(id) {
-  const s = saving.get(id);
+  const s = record(id).state;
   if (s === 'saving') return t('partner.saving');
   if (s === 'saved') return t('partner.saved');
   if (s === 'offline') return t('partner.offline');
@@ -116,35 +138,50 @@ function stateLabel(id) {
 }
 
 function setState(id, value) {
-  saving.set(id, value);
+  record(id).state = value;
   const node = listView ? $(`state-${id}`) : $('save-state');
   if (node) { node.textContent = stateLabel(id); node.className = `save-state save-${value}`; }
 }
 
 function queueSave(question, text) {
   if (game.readOnly) return;
+  const r = record(question.id);
+  r.draft = text;
   setState(question.id, 'saving');
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => flush(question, text), 700);
+  clearTimeout(r.timer);
+  r.timer = setTimeout(() => { r.timer = null; flush(question, text).catch(() => {}); }, 700);
 }
 
+/** Returns true when the text is safely on the server. Per question: one request at a time. */
 async function flush(question, text) {
-  if (game.readOnly) return;
-  clearTimeout(saveTimer);
+  if (game.readOnly) return true;
+  const r = record(question.id);
+  clearTimeout(r.timer); r.timer = null;
+  r.draft = text;
   const stored = game.answers?.[question.id];
-  if ((stored?.text ?? '') === text && stored?.questionRev === question.rev) { setState(question.id, 'saved'); return; }
+  if ((stored?.text ?? '') === text && stored?.questionRev === question.rev) { setState(question.id, 'saved'); return true; }
+  if (r.inFlight) return false;                 // the running request will pick up the newest draft
+  r.inFlight = true;
+  const generation = ++r.generation;
   setState(question.id, 'saving');
   try {
-    const res = await api.put(`/p/answers/${question.id}`, { text, questionRev: question.rev, baseRev: revs.get(question.id) ?? 0 });
-    game.answers = { ...game.answers, [question.id]: { text, rev: res.rev, questionRev: question.rev } };
+    const sent = r.draft;
+    const res = await api.put(`/p/answers/${question.id}`, { text: sent, questionRev: question.rev, baseRev: revs.get(question.id) ?? 0 });
     revs.set(question.id, res.rev);
-    setState(question.id, 'saved');
+    game.answers = { ...game.answers, [question.id]: { text: sent, rev: res.rev, questionRev: question.rev } };
+    if (r.generation === generation && r.draft === sent) { r.draft = null; setState(question.id, 'saved'); }
     render();
+    return true;
   } catch (err) {
-    if (err.offline) { setState(question.id, 'offline'); return; }
-    if (err.code === 'answer_conflict') return resolveConflict(question, text, err.details?.current);
-    if (err.code === 'question_changed') { toast(t('partner.conflict')); await reload(); return; }
+    if (err.offline) { setState(question.id, 'offline'); return false; }
+    if (err.code === 'answer_conflict') { r.inFlight = false; return resolveConflict(question, text, err.details?.current); }
+    if (err.code === 'question_changed') { toast(t('partner.conflict')); await reload(); return false; }
     setState(question.id, 'offline');
+    return false;
+  } finally {
+    r.inFlight = false;
+    // Typing continued while the request was in flight: send the newest text.
+    if (r.draft !== null && r.draft !== (game.answers?.[question.id]?.text ?? '')) queueSave(question, r.draft);
   }
 }
 
@@ -157,8 +194,10 @@ async function resolveConflict(question, mine, current) {
   revs.set(question.id, current?.rev ?? 0);
   if (keepMine) return flush(question, mine);
   game.answers = { ...game.answers, [question.id]: { text: current?.text ?? '', rev: current?.rev ?? 0, questionRev: question.rev } };
+  record(question.id).draft = null;
   setState(question.id, 'saved');
   render();
+  return true;
 }
 
 async function reload() {
@@ -177,8 +216,7 @@ function gone(key) {
 async function done() {
   const q = current();
   if (q) await flush(q, $('q-answer').value);
-  const pending = [...saving.values()].some((v) => v === 'saving' || v === 'offline');
-  if (pending) {
+  if (pendingSaves()) {
     const leave = await confirmModal(t, { title: t('partner.done'), body: t('partner.offline'), danger: true });
     if (!leave) return;
   }
@@ -191,6 +229,7 @@ async function done() {
 
 on('q-answer', 'input', (e) => { $('q-count').textContent = String(e.target.value.length); queueSave(current(), e.target.value); });
 on('q-answer', 'blur', (e) => flush(current(), e.target.value));
+// Navigation keeps the draft even when the save failed, so nothing typed is lost offline.
 on('btn-prev', 'click', async () => { await flush(current(), $('q-answer').value); index = Math.max(0, index - 1); render(); });
 on('btn-next', 'click', async () => { await flush(current(), $('q-answer').value); index = Math.min(questions().length - 1, index + 1); render(); });
 on('btn-toggle-view', 'click', async () => { if (!listView) await flush(current(), $('q-answer').value); listView = !listView; render(); });

@@ -11,7 +11,11 @@ export function el(tag, className, text) {
 export const SCREENS = ['signin', 'home', 'new', 'game', 'setup', 'question', 'penalty', 'strike', 'questions', 'settings', 'fixup', 'scoreboard', 'premium'];
 
 let currentScreen = 'signin';
+let observer = null;
 export const screen = () => currentScreen;
+
+/** Called on every screen change, so ad placement follows navigation instead of each call site. */
+export function onScreenChange(fn) { observer = fn; }
 
 export function show(name) {
   currentScreen = name;
@@ -20,6 +24,7 @@ export function show(name) {
     if (node) node.hidden = s !== name;
   }
   window.scrollTo(0, 0);
+  try { observer?.(name); } catch (err) { console.warn('screen observer failed', err); }
 }
 
 /** Fill every [data-t] with the catalogue. Called after the language is known. */
@@ -64,8 +69,21 @@ export function timeAgo(t, iso) {
   return t('time.hoursAgo', { n: Math.round(s / 3600) });
 }
 
+/**
+ * addEventListener ignores a returned promise, so a rejected async handler would be an unhandled
+ * rejection mid-party. Every handler is wrapped: the failure is logged and shown, the screen stays.
+ */
 export function on(id, event, handler) {
   const node = $(id);
-  if (node) node.addEventListener(event, handler);
-  else console.warn('missing element', id);
+  if (!node) { console.warn('missing element', id); return; }
+  node.addEventListener(event, (e) => {
+    try {
+      const result = handler(e);
+      if (result && typeof result.then === 'function') {
+        result.catch((err) => { console.error(`handler failed: ${id}`, err); toast('…'); });
+      }
+    } catch (err) {
+      console.error(`handler failed: ${id}`, err);
+    }
+  });
 }

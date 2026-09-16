@@ -121,3 +121,35 @@ describe('sync hardening', () => {
     expect(result.snapshot.readOnly).toBe(true);
   });
 });
+
+describe('journal hardening', () => {
+  it('writes both events of one action in a single transaction', async () => {
+    const { appendMany } = await import('../src/store/journal.js');
+    await saveGame(snapshot());
+    const { snapshot: after, events } = await appendMany('g1', [
+      { type: 'round.start', payload: { roundId: 'r1' }, mutate: (s) => { s.rounds.push({ id: 'r1', result: 'unplayed', started: true }); } },
+      { type: 'round.double', payload: { roundId: 'r1' }, mutate: (s) => { s.rounds[0].doubled = true; } },
+    ]);
+    expect(events).toHaveLength(2);
+    expect(after.rounds[0].doubled).toBe(true);
+    expect(after.localSeq).toBe(2);
+    expect((await loadGame('g1')).rounds[0].doubled).toBe(true);
+  });
+
+  it('refuses to write while the device is read-only', async () => {
+    await saveGame(snapshot({ readOnly: true }));
+    await expect(append('g1', 'round.mark', {})).rejects.toThrow('read_only');
+    expect(await pendingEvents('g1')).toHaveLength(0);
+  });
+
+  it('merges server fields into the row as it stands now', async () => {
+    const { mergeServer } = await import('../src/store/journal.js');
+    await saveGame(snapshot());
+    const stale = await loadGame('g1');
+    await append('g1', 'round.start', {}, (s) => { s.rounds.push({ id: 'late', result: 'unplayed' }); });
+    // a response built from the stale copy must not drop the round committed meanwhile
+    const merged = await mergeServer('g1', { revision: 9, answers: stale.answers });
+    expect(merged.revision).toBe(9);
+    expect(merged.rounds).toHaveLength(1);
+  });
+});

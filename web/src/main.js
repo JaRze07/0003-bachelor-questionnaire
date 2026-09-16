@@ -1,6 +1,6 @@
 // Host app entry: sign-in, game list, game overview, wiring for every screen.
-import { $, applyStatic, confirmModal, el, on, show, timeAgo, toast } from './host/ui.js';
-import { openGame, premium, refreshMe, setLanguage, state, sync } from './host/state.js';
+import { $, applyStatic, confirmModal, el, on, onScreenChange, show, timeAgo, toast } from './host/ui.js';
+import { openGame, premium, refreshGame, refreshMe, setLanguage, state, sync } from './host/state.js';
 import { pool, renderFixup, renderScoreboard, startRound, wireRound } from './host/round.js';
 import { renderPremium, renderQuestions, renderSettings, wireEditors } from './host/editors.js';
 import { readinessState, runReadiness } from './host/readiness.js';
@@ -12,13 +12,16 @@ import { drainOutbox } from './store/sync.js';
 import { deviceLanguage } from './i18n.js';
 
 const t = (...a) => state.t(...a);
-let links = { partner: null, spectator: null };
+let links = { gameId: null, partner: null, spectator: null };
+const linksFor = (gameId) => (links.gameId === gameId ? links : { gameId, partner: null, spectator: null });
 
 /* ---------- boot ---------- */
 
 async function boot() {
   await setLanguage(deviceLanguage());
   applyStatic(t);
+  // Ad placement follows navigation, so a banner cannot survive on a screen that forbids it.
+  onScreenChange((name) => { syncBanner(name, premium()).catch(() => {}); });
   wire();
   wireRound();
   wireEditors();
@@ -36,7 +39,6 @@ async function afterSignIn() {
   try { await refreshMe(); } catch { /* offline: the cached entitlement is used */ }
   await renderHome();
   show('home');
-  syncBanner('home', premium());
 }
 
 /* ---------- home ---------- */
@@ -82,13 +84,12 @@ async function createGame() {
       title: $('new-title').value.trim() || undefined,
       source: $('new-blank').checked ? 'blank' : 'curated',
     });
-    links = { partner: res.tokens.partner.url, spectator: res.tokens.spectator.url };
+    links = { gameId: res.game.id, partner: res.tokens.partner.url, spectator: res.tokens.spectator.url };
     await saveGame({
       gameId: res.game.id, deviceId: await deviceId(), localSeq: 0, rounds: [], answers: {},
       questions: res.questions, game: res.game, epoch: res.epoch, revision: res.game.revision,
       readOnly: false, readiness: null, links,
     });
-    await maybeInterstitial('before_new_game', premium());
     await openGameScreen(res.game.id);
   } catch (err) {
     $('new-error').textContent = err.offline ? t('error.offline')
@@ -103,28 +104,42 @@ async function openGameScreen(gameId) {
   const snapshot = await openGame(gameId);
   await setLanguage(snapshot.game?.language ?? state.lang);
   applyStatic(t);
-  links = snapshot.links ?? links;
-  await claimLease(snapshot);
-  await renderGame();
-  show('game');
-  syncBanner('game', premium());
-  sync().catch(() => {});
-  drainOutbox(state.api).catch(() => {});
+  // Links belong to one game; never carry another game's bearer token onto this screen.
+  links = snapshot.links?.gameId === gameId ? snapshot.links : linksFor(gameId);
+  if (snapshot.game) { await renderGame(); show('game'); }
+  // Network work runs behind the screen: a bad connection must not block the party.
+  (async () => {
+    await claimLease(snapshot);
+    const pulled = await refreshGame(gameId).catch(() => null);
+    if (state.snapshot?.gameId !== gameId) return;
+    if (!pulled && !snapshot.game) { toast(t('error.offline')); return; }
+    await renderGame();
+    if (!document.getElementById('screen-game').hidden) show('game');
+    await sync().catch(() => {});
+    await drainOutbox(state.api).catch(() => {});
+    await renderGame();
+  })().catch((err) => console.error('background open failed', err));
 }
 
 async function claimLease(snapshot) {
   try {
     const res = await state.api.post(`/games/${snapshot.gameId}/lease`, { deviceId: snapshot.deviceId, label: await deviceLabel() });
-    snapshot.readOnly = !res.isHolder;
-    snapshot.epoch = res.epoch;
-    snapshot.leaseSyncAt = res.lastSyncAt;
-    await saveGame(snapshot);
-  } catch { /* offline: keep playing with the cached epoch (spec §7) */ }
+    const { mergeServer } = await import('./store/journal.js');
+    const merged = await mergeServer(snapshot.gameId, { readOnly: !res.isHolder, epoch: res.epoch, leaseSyncAt: res.lastSyncAt });
+    if (merged && state.snapshot?.gameId === snapshot.gameId) state.snapshot = merged;
+  } catch (err) {
+    // Offline keeps the cached epoch and keeps playing (spec §7); a refusal makes this device read-only.
+    if (err.offline) return;
+    const { mergeServer } = await import('./store/journal.js');
+    const merged = await mergeServer(snapshot.gameId, { readOnly: true });
+    if (merged && state.snapshot?.gameId === snapshot.gameId) state.snapshot = merged;
+  }
 }
 
 async function renderGame() {
   const s = state.snapshot;
-  const game = s.game;
+  const game = s?.game;
+  if (!game) return;
   $('game-title').textContent = game.title || t('app.name');
   $('game-status').textContent = t(`status.${game.status}`);
   $('game-readonly').hidden = !s.readOnly;
@@ -150,16 +165,20 @@ async function renderGame() {
 
   const playableCount = pool().length;
   const play = $('btn-play');
-  play.disabled = s.readOnly || playableCount === 0;
+  play.disabled = Boolean(s.readOnly) || playableCount === 0;
+  // A device without the lease may look, not write.
+  for (const id of ['btn-questions', 'btn-settings', 'btn-fixup', 'btn-delete', 'btn-regen-partner', 'btn-regen-spectator']) {
+    const node = $(id);
+    if (node) node.disabled = Boolean(s.readOnly);
+  }
   play.textContent = game.status === 'in_progress' ? t('round.next')
     : counts.answered < counts.questions ? t('game.startPartial', { answered: counts.answered, total: counts.questions })
     : t('game.start');
 
   const divergent = (await divergentEvents()).filter((row) => row.gameId === s.gameId);
   if (divergent.length) {
-    const notice = $('home-notice');
-    notice.hidden = false;
-    notice.textContent = `${divergent.length} rounds could not be sent (another device took over).`;
+    sync.className = 'notice notice-warn';
+    sync.textContent = `${sync.textContent} · ${divergent.length} actions could not be sent from this phone.`;
   }
 }
 
@@ -181,14 +200,15 @@ async function checkReadiness() {
 
 async function startPlay() {
   const s = state.snapshot;
+  if (s.readOnly) { toast(t('game.readOnly')); return; }
+  // Start locally first: the round must begin even with no connection. The server learns from the
+  // first uploaded event, which moves the game to in_progress there too.
   if (s.game.status !== 'in_progress') {
-    try {
-      const res = await state.api.post(`/games/${s.gameId}/transition`, { to: 'in_progress', allowPartial: true });
-      s.game = res.game;
-      await saveGame(s);
-    } catch (err) {
-      if (!err.offline) { toast(t('error.generic')); return; }
-    }
+    const { mergeServer } = await import('./store/journal.js');
+    const merged = await mergeServer(s.gameId, { game: { ...s.game, status: 'in_progress' } });
+    if (merged) state.snapshot = merged;
+    state.api.post(`/games/${s.gameId}/transition`, { to: 'in_progress', allowPartial: true })
+      .catch((err) => { if (!err.offline) console.warn('transition rejected', err.code); });
   }
   startRound();
 }
@@ -196,9 +216,10 @@ async function startPlay() {
 async function regenerate(role) {
   try {
     const res = await state.api.post(`/games/${state.snapshot.gameId}/tokens/${role}/regenerate`, {});
-    links = { ...links, [role]: res.url };
-    state.snapshot.links = links;
-    await saveGame(state.snapshot);
+    links = { ...linksFor(state.snapshot.gameId), [role]: res.url };
+    const { mergeServer } = await import('./store/journal.js');
+    const merged = await mergeServer(state.snapshot.gameId, { links });
+    if (merged) state.snapshot = merged;
     await renderGame();
     toast(t('game.regenerate'));
   } catch (err) {
@@ -211,9 +232,9 @@ async function takeOver() {
   if (!ok) return;
   try {
     const res = await state.api.post(`/games/${state.snapshot.gameId}/lease/takeover`, { deviceId: state.snapshot.deviceId, label: await deviceLabel(), confirm: true });
-    state.snapshot.epoch = res.epoch;
-    state.snapshot.readOnly = false;
-    await saveGame(state.snapshot);
+    const { mergeServer } = await import('./store/journal.js');
+    const merged = await mergeServer(state.snapshot.gameId, { epoch: res.epoch, readOnly: false });
+    if (merged) state.snapshot = merged;
     await openGameScreen(state.snapshot.gameId);
   } catch (err) {
     toast(err.offline ? t('error.offline') : t('error.generic'));
@@ -258,7 +279,11 @@ function wire() {
     if (state.user) await afterSignIn();
   });
   on('btn-signout', 'click', async () => { await signOut(); state.user = null; show('signin'); });
-  on('btn-new-game', 'click', () => { $('new-blank-row').hidden = !premium(); show('new'); });
+  on('btn-new-game', 'click', async () => {
+    $('new-blank-row').hidden = !premium();
+    show('new');
+    maybeInterstitial('before_new_game', premium()).catch(() => {});
+  });
   on('btn-create', 'click', createGame);
   on('btn-copy-partner', 'click', async () => { if (await copy(links.partner)) toast(t('action.copied')); });
   on('btn-copy-spectator', 'click', async () => { if (await copy(links.spectator)) toast(t('action.copied')); });
@@ -270,14 +295,14 @@ function wire() {
   on('btn-questions', 'click', async () => { await renderQuestions(); show('questions'); });
   on('btn-settings', 'click', () => { renderSettings(); show('settings'); });
   on('btn-fixup', 'click', () => { renderFixup(); show('fixup'); });
-  on('btn-scoreboard', 'click', () => { renderScoreboard(); show('scoreboard'); syncBanner('scoreboard', premium()); });
+  on('btn-scoreboard', 'click', () => { renderScoreboard(); show('scoreboard'); });
   on('btn-export', 'click', exportGame);
   on('btn-delete', 'click', deleteGame);
   for (const button of document.querySelectorAll('[data-goto]')) {
     button.addEventListener('click', async () => {
       const target = button.dataset.goto;
-      if (target === 'home') { await renderHome(); show('home'); syncBanner('home', premium()); return; }
-      if (target === 'game' && state.snapshot) { await renderGame(); show('game'); syncBanner('game', premium()); }
+      if (target === 'home') { await renderHome(); show('home'); return; }
+      if (target === 'game' && state.snapshot) { await renderGame(); show('game'); }
     });
   }
 }
