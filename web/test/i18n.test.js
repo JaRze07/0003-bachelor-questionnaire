@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { SUPPORTED, translator } from '../src/i18n.js';
 
 const read = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
@@ -11,7 +12,7 @@ describe('translations', () => {
   const en = catalogue('en');
 
   it('ships a catalogue and a question bank for every launch language', () => {
-    const files = readdirSync(new URL('../i18n/', import.meta.url));
+    const files = readdirSync(fileURLToPath(new URL('../i18n/', import.meta.url)));
     for (const lang of SUPPORTED) {
       expect(files).toContain(`${lang}.json`);
       expect(bank(lang).questions).toHaveLength(20);
