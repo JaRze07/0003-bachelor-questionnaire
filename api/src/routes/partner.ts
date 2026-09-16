@@ -27,9 +27,10 @@ export function partnerRoutes({ repo }: AppDeps) {
     });
     const answers = Object.fromEntries(full.answers.filter((a) => questions.some((q) => q.id === a.questionId)).map((a) => [a.questionId, { text: a.text, rev: a.rev, questionRev: a.questionRev }]));
     const now = nowIso();
-    if (!game.partnerOpenedAt) game.partnerOpenedAt = now;
+    const fields: Record<string, string> = { partnerLastLoadedAt: now };
+    if (!game.partnerOpenedAt) { game.partnerOpenedAt = now; fields.partnerOpenedAt = now; }
     game.partnerLastLoadedAt = now;
-    await repo.games.set(game);
+    await repo.games.update(game.id, fields);
     return c.json({ language: game.language, status: game.status, title: game.title, readOnly: !partnerMayWrite(game), questions, answers, lastLoadedAt: previousLoad || null });
   });
 

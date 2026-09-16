@@ -1,4 +1,5 @@
 import { Firestore } from '@google-cloud/firestore';
+import { createHash } from 'node:crypto';
 import type { Answer, Game, GameEvent, Projection, Purchase, Question, Repo, Round, Snapshot, TokenDoc, User } from './types.js';
 
 /**
@@ -7,6 +8,9 @@ import type { Answer, Game, GameEvent, Projection, Purchase, Question, Repo, Rou
  * games/{id}/public/summary, tokens/{sha256}.
  * Undefined fields are stripped (Firestore rejects them).
  */
+/** Purchase tokens can exceed the 1500-byte document-id limit and may contain '/', so they are hashed. */
+const purchaseKey = (token: string) => createHash('sha256').update(token).digest('hex');
+
 export function createFirestoreRepo(db = new Firestore({ ignoreUndefinedProperties: true })): Repo {
   const games = db.collection('games');
   const col = (gameId: string, name: string) => games.doc(gameId).collection(name);
@@ -27,14 +31,17 @@ export function createFirestoreRepo(db = new Firestore({ ignoreUndefinedProperti
     users: {
       async get(uid) { return data<User>(await db.collection('users').doc(uid).get()); },
       async set(u) { await db.collection('users').doc(u.uid).set(u); },
+      async update(uid, fields) { await db.collection('users').doc(uid).set(fields, { merge: true }); },
     },
     purchases: {
-      async get(token) { return data<Purchase>(await db.collection('purchases').doc(token).get()); },
-      async set(p) { await db.collection('purchases').doc(p.token).set(p); },
+      async get(token) { return data<Purchase>(await db.collection('purchases').doc(purchaseKey(token)).get()); },
+      async set(p) { await db.collection('purchases').doc(purchaseKey(p.token)).set(p); },
+      async listByUid(uid) { return all<Purchase>(db.collection('purchases').where('uid', '==', uid).limit(50)); },
     },
     games: {
       async get(id) { return data<Game>(await games.doc(id).get()); },
       async set(g) { await games.doc(g.id).set(g); },
+      async update(id, fields) { await games.doc(id).set(fields, { merge: true }); },
       async listByHost(uid) { return all<Game>(games.where('hostUid', '==', uid)); },
       async listIdleBefore(iso) { return all<Game>(games.where('lastActivityAt', '<', iso).limit(500)); },
       async deleteTree(id) {

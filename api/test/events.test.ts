@@ -35,8 +35,15 @@ describe('event upload and lease', () => {
     const stale = await playRound(h, g.id, g.questions[0].id, 'correct', 1);
     expect(stale.status).toBe(409);
     expect((await stale.json() as any).error.code).toBe('stale_epoch');
-    const ok = await playRound(h, g.id, g.questions[0].id, 'correct', 1, { epoch: 2 });
+    // right epoch, wrong device: still refused, the new phone holds the game
+    const wrongDevice = await h.host(`/games/${g.id}/events`, { json: { epoch: 2, deviceId: 'dev-1', events: [] } });
+    expect((await wrongDevice.json() as any).error.code).toBe('not_lease_holder');
+    const ok = await h.host(`/games/${g.id}/events`, { json: { epoch: 2, deviceId: 'dev-2', events: [
+      ev('round.start', 1, { roundId: 'round-7', questionId: g.questions[0].id, penalty: { type: 'drink', label: 'drink', description: 'x' } }),
+      ev('round.mark', 2, { roundId: 'round-7', result: 'correct' }),
+    ] } });
     expect(ok.status).toBe(200);
+    expect((await ok.json() as any).acknowledged).toHaveLength(2);
   });
 
   it('takeover needs confirmation and keeps the holder otherwise', async () => {
@@ -57,12 +64,12 @@ describe('event upload and lease', () => {
     await h.host(`/games/${g.id}`, { method: 'PATCH', json: { settings: { penaltyScheme: 'drink_or_dare', customPenalties: [], rules: { strikeBack: true, doubleOrNothing: true }, randomOrder: false } } });
     await start(h, g);
     await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [
-      ev('round.start', 1, { roundId: 'r1', questionId: g.questions[0].id, penalty: { type: 'dare', label: 'dare', description: 'sing' } }),
-      ev('round.double', 2, { roundId: 'r1' }),
-      ev('round.mark', 3, { roundId: 'r1', result: 'correct' }),
-      ev('round.strikeBack', 4, { roundId: 'r1', guest: 'Ola' }),
-      ev('round.strikeBack', 5, { roundId: 'r1', guest: 'Tomek' }),
-      ev('round.strikeBack', 6, { roundId: 'r1', guest: 'Third' }),
+      ev('round.start', 1, { roundId: 'round-1', questionId: g.questions[0].id, penalty: { type: 'dare', label: 'dare', description: 'sing' } }),
+      ev('round.double', 2, { roundId: 'round-1' }),
+      ev('round.mark', 3, { roundId: 'round-1', result: 'correct' }),
+      ev('round.strikeBack', 4, { roundId: 'round-1', guest: 'Ola' }),
+      ev('round.strikeBack', 5, { roundId: 'round-1', guest: 'Tomek' }),
+      ev('round.strikeBack', 6, { roundId: 'round-1', guest: 'Third' }),
     ] } });
     const round = (await h.repo.rounds.list(g.id))[0];
     expect(round.doubled).toBe(true);
@@ -73,9 +80,9 @@ describe('event upload and lease', () => {
     const h = harness();
     const g = await seedGame(h); await start(h, g);
     await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [
-      ev('round.start', 1, { roundId: 'r1', questionId: g.questions[0].id, penalty: { type: 'drink', label: 'drink', description: 'x' } }),
-      ev('round.mark', 2, { roundId: 'r1', result: 'correct' }),
-      ev('round.strikeBack', 3, { roundId: 'r1', guest: 'Ola' }),
+      ev('round.start', 1, { roundId: 'round-1', questionId: g.questions[0].id, penalty: { type: 'drink', label: 'drink', description: 'x' } }),
+      ev('round.mark', 2, { roundId: 'round-1', result: 'correct' }),
+      ev('round.strikeBack', 3, { roundId: 'round-1', guest: 'Ola' }),
     ] } });
     expect((await h.repo.rounds.list(g.id))[0].strikeBack).toHaveLength(0);
   });
@@ -84,7 +91,7 @@ describe('event upload and lease', () => {
     const h = harness();
     const g = await seedGame(h); await start(h, g);
     await playRound(h, g.id, g.questions[0].id, 'wrong', 1);
-    await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [ev('round.fixup', 50, { roundId: 'r1', questionId: g.questions[0].id, result: 'unplayed' })] } });
+    await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [ev('round.fixup', 50, { roundId: 'round-1', questionId: g.questions[0].id, result: 'unplayed' })] } });
     const game = await h.host(`/games/${g.id}`).then((r) => r.json()) as any;
     expect(game.game.counts.rounds).toBe(0);
     expect(game.rounds[0].result).toBe('unplayed');
@@ -97,5 +104,54 @@ describe('event upload and lease', () => {
     const res = await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [] } });
     const body = await res.json() as any;
     expect(body.partnerAnswers[g.questions[3].id].text).toBe('late answer');
+  });
+});
+
+describe('hardening from the Codex review', () => {
+  it('refuses an event id that is not a safe document id', async () => {
+    const h = harness();
+    const g = await seedGame(h); await start(h, g);
+    const res = await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [
+      { id: '../escape/id', seq: 1, type: 'round.start', at: new Date().toISOString(), payload: {} },
+    ] } });
+    expect(res.status).toBe(400);
+  });
+
+  it('refuses a payload that would blow the document limit', async () => {
+    const h = harness();
+    const g = await seedGame(h); await start(h, g);
+    const res = await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [
+      ev('round.start', 1, { roundId: 'round-1', questionId: g.questions[0].id, filler: 'x'.repeat(70_000) }),
+    ] } });
+    const body = await res.json() as any;
+    expect(body.rejected[0]).toMatchObject({ reason: 'too_large' });
+    expect(await h.repo.rounds.list(g.id)).toHaveLength(0);
+  });
+
+  it('reports events it could not apply instead of acknowledging them', async () => {
+    const h = harness();
+    const g = await seedGame(h); await start(h, g);
+    const res = await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [
+      ev('round.mark', 1, { roundId: 'round-missing', result: 'correct' }),
+    ] } });
+    const body = await res.json() as any;
+    expect(body.acknowledged).toHaveLength(0);
+    expect(body.rejected[0].reason).toBe('not_applicable');
+  });
+
+  it('freezes a finished game against further gameplay', async () => {
+    const h = harness();
+    const g = await seedGame(h); await start(h, g);
+    await playRound(h, g.id, g.questions[0].id, 'correct', 1);
+    await h.host(`/games/${g.id}/transition`, { json: { to: 'finished', confirm: true } });
+    const res = await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [
+      ev('round.start', 5, { roundId: 'round-late', questionId: g.questions[1].id, penalty: { type: 'drink', label: 'drink', description: 'x' } }),
+    ] } });
+    expect((await res.json() as any).rejected).toHaveLength(1);
+    // a fix-up within 24 h is still allowed
+    const fix = await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [
+      ev('round.fixup', 6, { roundId: 'round-1', questionId: g.questions[0].id, result: 'wrong' }),
+    ] } });
+    expect((await fix.json() as any).acknowledged).toHaveLength(1);
   });
 });

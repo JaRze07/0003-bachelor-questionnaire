@@ -5,7 +5,8 @@ export const OFFLINE = 'offline';
 
 /**
  * Push local events for one game. Returns { status, snapshot }.
- * status: 'synced' | 'offline' | 'stale_epoch' | 'error'
+ * status: 'synced' | 'offline' | 'stale_epoch' | 'error'. 'stale_epoch' also covers 'not_lease_holder':
+ * in both cases this device may not write until the host takes the game over here.
  */
 export async function pushEvents(api, snapshot) {
   const events = await pendingEvents(snapshot.gameId);
@@ -17,6 +18,10 @@ export async function pushEvents(api, snapshot) {
       events: events.map((e) => ({ id: e.id, seq: e.seq, type: e.type, at: e.at, payload: e.payload })),
     });
     await markAcked(res.acknowledged ?? []);
+    // Events the server refused (too large, no longer applicable, game finished) are parked, not retried
+    // forever, and reported so the host sees that a round did not reach the server.
+    const rejected = (res.rejected ?? []).map((r) => r.id);
+    if (rejected.length) await moveToDivergent(snapshot.gameId, events.filter((e) => rejected.includes(e.id)));
     snapshot.answers = { ...snapshot.answers, ...(res.partnerAnswers ?? {}) };
     snapshot.revision = res.revision ?? snapshot.revision;
     snapshot.lastServerSync = new Date().toISOString();
@@ -24,7 +29,7 @@ export async function pushEvents(api, snapshot) {
     return { status: 'synced', snapshot };
   } catch (err) {
     if (err.offline) return { status: OFFLINE, snapshot };
-    if (err.code === 'stale_epoch') {
+    if (err.code === 'stale_epoch' || err.code === 'not_lease_holder') {
       await moveToDivergent(snapshot.gameId, events);
       snapshot.readOnly = true;
       snapshot.epoch = err.details?.epoch ?? snapshot.epoch;

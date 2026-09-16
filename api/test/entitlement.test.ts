@@ -34,8 +34,8 @@ describe('premium entitlement', () => {
     const h = harness();
     await verify(h, 'ok-refundable');
     const g = await seedGame(h);
-    await h.repo.purchases.set({ ...(await h.repo.purchases.get('ok-refundable'))!, token: 'refund-me' });
-    const note = Buffer.from(JSON.stringify({ voidedPurchaseNotification: { purchaseToken: 'refund-me' } })).toString('base64');
+    h.play.overrides.set('ok-refundable', 'revoked');   // the store voided it
+    const note = Buffer.from(JSON.stringify({ voidedPurchaseNotification: { purchaseToken: 'ok-refundable' } })).toString('base64');
     expect((await h.internal('/internal/play/rtdn', { message: { data: note } })).status).toBe(204);
     const me = await h.host('/me').then((r: Response) => r.json()) as any;
     expect(me.premium.state).toBe('revoked');
@@ -59,5 +59,35 @@ describe('premium entitlement', () => {
     const h = harness();
     const res = await h.app.fetch(new Request('https://api.test/v1/internal/jobs/retention', { method: 'POST' }));
     expect(res.status).toBe(401);
+  });
+});
+
+describe('entitlement hardening', () => {
+  it('does not bind a purchase the store could not confirm', async () => {
+    const h = harness();
+    const res = await verify(h, 'mystery-token');
+    expect(res.status).toBe(409);
+    expect((await res.json() as any).error.code).toBe('verification_unavailable');
+    expect(await h.repo.purchases.get('mystery-token')).toBeNull();
+  });
+
+  it('keeps premium while another purchase of the same user is still active', async () => {
+    const h = harness();
+    await verify(h, 'ok-first');
+    await verify(h, 'ok-second');
+    h.play.overrides.set('ok-first', 'revoked');
+    const note = Buffer.from(JSON.stringify({ voidedPurchaseNotification: { purchaseToken: 'ok-first' } })).toString('base64');
+    await h.internal('/internal/play/rtdn', { message: { data: note } });
+    expect((await h.host('/me').then((r: Response) => r.json()) as any).premium.active).toBe(true);
+  });
+
+  it('asks Pub/Sub to retry when the store cannot be reached', async () => {
+    const h = harness();
+    await verify(h, 'ok-third');
+    h.play.overrides.set('ok-third', 'unknown');
+    const note = Buffer.from(JSON.stringify({ voidedPurchaseNotification: { purchaseToken: 'ok-third' } })).toString('base64');
+    const res = await h.internal('/internal/play/rtdn', { message: { data: note } });
+    expect(res.status).toBe(503);
+    expect((await h.host('/me').then((r: Response) => r.json()) as any).premium.active).toBe(true);
   });
 });

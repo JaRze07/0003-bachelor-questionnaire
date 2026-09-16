@@ -14,6 +14,9 @@ export async function applyPurchase(repo: Repo, play: PlayVerifier, user: User, 
   const existing = await repo.purchases.get(token);
   if (existing && existing.uid !== user.uid) throw conflict('purchase_bound_elsewhere', 'This purchase is linked to another account');
   const result = await play.verify(productId, token);
+  // 'unknown' means the store could not be reached: bind nothing, so a Play outage cannot
+  // hand a token to the wrong account or park it forever.
+  if (result.state === 'unknown' && !existing) throw conflict('verification_unavailable', 'The store could not confirm this purchase yet');
   const now = nowIso();
   await repo.purchases.set({
     token, uid: user.uid, platform, productId,
@@ -23,23 +26,44 @@ export async function applyPurchase(repo: Repo, play: PlayVerifier, user: User, 
     verifiedAt: now,
     raw: result.raw,
   });
-  user.premium = nextPremium(user.premium, { platform, productId, token, state: result.state, now });
-  await repo.users.set(user);
+  user.premium = await aggregate(repo, user, { platform, productId, token, state: result.state, now });
+  await repo.users.update(user.uid, { premium: user.premium });
   return user;
 }
 
+/**
+ * Entitlement over all purchases bound to the user: premium stays active while any purchase is active,
+ * so re-verifying an old refunded token cannot revoke a newer valid one.
+ */
+async function aggregate(repo: Repo, user: User, u: Parameters<typeof nextPremium>[1]): Promise<Premium> {
+  const next = nextPremium(user.premium, u);
+  if (next.state === 'active') return next;
+  const others = (await repo.purchases.listByUid(user.uid)).filter((p) => p.token !== u.token);
+  const stillActive = others.find((p) => p.state === 'active');
+  if (!stillActive) return next;
+  return {
+    ...next, state: 'active', platform: stillActive.platform, productId: stillActive.productId,
+    purchaseToken: stillActive.token, since: user.premium.since ?? stillActive.boundAt,
+    revokedAt: undefined, revokeReason: undefined,
+  };
+}
+
 /** Store notification (refund, revoke) for a known token: re-verify and update the owner. */
+export class TransientVerification extends Error {}
+
 export async function applyNotification(repo: Repo, play: PlayVerifier, token: string, reason: string): Promise<boolean> {
   const p = await repo.purchases.get(token);
   if (!p) return false;
   const user = await repo.users.get(p.uid);
   if (!user) return false;
   const result = await play.verify(p.productId, token);
+  // The store was unreachable: let Pub/Sub retry instead of acknowledging a refund we could not confirm.
+  if (result.state === 'unknown') throw new TransientVerification('store unreachable');
   const now = nowIso();
   p.state = result.state; p.verifiedAt = now; p.raw = result.raw ?? p.raw;
   await repo.purchases.set(p);
-  user.premium = nextPremium(user.premium, { platform: p.platform, productId: p.productId, token, state: result.state, now, reason });
-  await repo.users.set(user);
+  user.premium = await aggregate(repo, user, { platform: p.platform, productId: p.productId, token, state: result.state, now, reason });
+  await repo.users.update(user.uid, { premium: user.premium });
   return true;
 }
 

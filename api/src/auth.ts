@@ -17,7 +17,8 @@ async function firebaseVerifier(): Promise<Verifier> {
   const app = admin.getApps()[0] ?? admin.initializeApp();
   const auth = getAuth(app);
   verifier = async (idToken) => {
-    const decoded = await auth.verifyIdToken(idToken);
+    // checkRevoked: a signed-out or disabled host must lose access at once, not at token expiry.
+    const decoded = await auth.verifyIdToken(idToken, true);
     return { uid: decoded.uid };
   };
   return verifier;
@@ -55,8 +56,9 @@ export function hostAuth(repo: Repo): MiddlewareHandler<{ Variables: Vars }> {
       user = { uid, premium: { state: 'none' }, createdAt: now, lastSeenAt: now };
       await repo.users.set(user);
     } else if (Date.parse(user.lastSeenAt) < Date.now() - 60_000) {
+      // field-level update: a full set() here would overwrite a concurrent premium change
+      await repo.users.update(uid, { lastSeenAt: now });
       user.lastSeenAt = now;
-      await repo.users.set(user);
     }
     c.set('uid', uid);
     c.set('user', user);
@@ -79,10 +81,13 @@ export function ownedGame(repo: Repo): MiddlewareHandler<{ Variables: Vars }> {
 
 export function gameTokenAuth(repo: Repo, role: TokenRole): MiddlewareHandler<{ Variables: Vars }> {
   return async (c, next) => {
+    // Caller bucket first, so an unknown token cannot buy unlimited lookups by varying itself.
+    rateLimit(`ip:${clientIp(c)}`, 240, 60);
     const token = c.req.header('x-game-token');
     if (!token || token.length < 20 || token.length > 128) throw notFound('link_unavailable');
     const hash = hashToken(token);
-    rateLimit(`${role}:${hash}`, role === 'partner' ? 60 : 20, 60);
+    // A whole table of spectators shares one link, so the per-token budget has to fit a room, not a phone.
+    rateLimit(`${role}:${hash}`, role === 'partner' ? 120 : 600, 60);
     const doc = await repo.tokens.get(hash);
     if (!doc || doc.role !== role) throw notFound('link_unavailable');
     const game = await repo.games.get(doc.gameId);
@@ -108,7 +113,13 @@ export function rateLimit(key: string, max: number, windowSec: number, now = Dat
   }
   hits.push(now);
   buckets.set(key, hits);
-  if (buckets.size > 50_000) buckets.clear(); // crude memory guard
+  if (buckets.size > 20_000) sweep(now);
+}
+
+/** Drop buckets whose newest hit is older than 5 minutes. Never clears live limits wholesale. */
+function sweep(now: number) {
+  const cutoff = now - 300_000;
+  for (const [key, hits] of buckets) if (!hits.length || hits[hits.length - 1] < cutoff) buckets.delete(key);
 }
 
 export function resetRateLimits() { buckets.clear(); }

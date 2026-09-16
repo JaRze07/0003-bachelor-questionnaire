@@ -99,3 +99,25 @@ describe('sync', () => {
     expect(await divergentEvents()).toHaveLength(1);
   });
 });
+
+describe('sync hardening', () => {
+  const api = (impl) => ({ post: impl });
+
+  it('parks events the server rejected', async () => {
+    await saveGame(snapshot());
+    const { event } = await append('g1', 'round.mark', {});
+    const result = await pushEvents(api(async () => ({ acknowledged: [], rejected: [{ id: event.id, reason: 'too_large' }] })), await loadGame('g1'));
+    expect(result.status).toBe('synced');
+    expect(await pendingEvents('g1')).toHaveLength(0);
+    expect(await divergentEvents()).toHaveLength(1);
+  });
+
+  it('goes read-only when another device holds the lease', async () => {
+    await saveGame(snapshot());
+    await append('g1', 'round.mark', {});
+    const err = Object.assign(new Error('holder'), { code: 'not_lease_holder', details: { epoch: 1 } });
+    const result = await pushEvents(api(async () => { throw err; }), await loadGame('g1'));
+    expect(result.status).toBe('stale_epoch');
+    expect(result.snapshot.readOnly).toBe(true);
+  });
+});

@@ -21,7 +21,7 @@ export function tokenRoutes(deps: AppDeps) {
     const game = c.get('game');
     const token = await issueToken(deps, game, role);
     game.updatedAt = nowIso();
-    await repo.games.set(game);
+    await repo.games.update(game.id, { tokens: game.tokens, updatedAt: game.updatedAt });
     return c.json({ url: linkFor(role, token), version: game.tokens[role].version });
   });
 
@@ -32,7 +32,7 @@ export function tokenRoutes(deps: AppDeps) {
     if (state.hash) await repo.tokens.delete(state.hash);
     game.tokens[role] = { hash: '', version: state.version, revokedAt: nowIso() };
     game.updatedAt = nowIso();
-    await repo.games.set(game);
+    await repo.games.update(game.id, { tokens: game.tokens, updatedAt: game.updatedAt });
     return c.body(null, 204);
   });
 

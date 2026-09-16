@@ -26,14 +26,23 @@ export function createMemoryRepo(): Repo & { dump(): unknown } {
     users: {
       async get(uid) { return clone(users.get(uid) ?? null); },
       async set(u) { users.set(u.uid, clone(u)); },
+      async update(uid, fields) {
+        const current = users.get(uid);
+        if (current) users.set(uid, { ...current, ...clone(fields) });
+      },
     },
     purchases: {
       async get(token) { return clone(purchases.get(token) ?? null); },
       async set(p) { purchases.set(p.token, clone(p)); },
+      async listByUid(uid) { return clone([...purchases.values()].filter((p) => p.uid === uid)); },
     },
     games: {
       async get(id) { return clone(games.get(id) ?? null); },
       async set(g) { games.set(g.id, clone(g)); },
+      async update(id, fields) {
+        const current = games.get(id);
+        if (current) games.set(id, { ...current, ...clone(fields) });
+      },
       async listByHost(uid) { return clone([...games.values()].filter((g) => g.hostUid === uid)); },
       async listIdleBefore(iso) { return clone([...games.values()].filter((g) => g.lastActivityAt < iso)); },
       async deleteTree(id) {

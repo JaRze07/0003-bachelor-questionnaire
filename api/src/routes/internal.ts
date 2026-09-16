@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { AppDeps } from '../app.js';
 import type { Vars } from '../auth.js';
 import { verifyInternal } from '../domain/internalAuth.js';
-import { applyNotification } from '../domain/entitlement.js';
+import { applyNotification, TransientVerification } from '../domain/entitlement.js';
 import { runRetention } from '../jobs/retention.js';
 
 const pubsubBody = z.object({ message: z.object({ data: z.string(), messageId: z.string().optional() }) });
@@ -20,7 +20,13 @@ export function internalRoutes({ repo, play }: AppDeps) {
     const token = note.oneTimeProductNotification?.purchaseToken ?? note.voidedPurchaseNotification?.purchaseToken;
     if (token) {
       const reason = note.voidedPurchaseNotification ? 'voided' : `one_time_${note.oneTimeProductNotification?.notificationType ?? 0}`;
-      await applyNotification(repo, play, token, reason);
+      try {
+        await applyNotification(repo, play, token, reason);
+      } catch (err) {
+        // 503 makes Pub/Sub redeliver; acknowledging here could leave a refunded purchase active.
+        if (err instanceof TransientVerification) return c.json({ error: { code: 'retry_later' } }, 503);
+        throw err;
+      }
     }
     return c.body(null, 204);
   });

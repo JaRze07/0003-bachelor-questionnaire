@@ -13,6 +13,7 @@ export const CURATED = Array.from({ length: 20 }, (_, i) => ({
 
 export interface Harness {
   repo: Repo;
+  play: ReturnType<typeof fakePlayVerifier>;
   app: ReturnType<typeof createApp>;
   host: (path: string, init?: RequestInit & { uid?: string; json?: unknown }) => Promise<Response>;
   token: (path: string, token: string, init?: RequestInit & { json?: unknown }) => Promise<Response>;
@@ -22,9 +23,10 @@ export interface Harness {
 export function harness(): Harness {
   resetRateLimits();
   const repo = createMemoryRepo();
+  const play = fakePlayVerifier();
   const app = createApp({
     repo,
-    play: fakePlayVerifier(),
+    play,
     curated: async (lang) => (lang === 'en' || lang === 'pl' ? CURATED : null),
   });
   const call = async (path: string, init: RequestInit & { json?: unknown } = {}, headers: Record<string, string> = {}) => {
@@ -36,7 +38,7 @@ export function harness(): Harness {
     }));
   };
   return {
-    repo, app,
+    repo, app, play,
     host: (path, init = {}) => call(path, init, { Authorization: `Bearer dev:${init.uid ?? 'u1'}` }),
     token: (path, token, init = {}) => call(path, init, { 'X-Game-Token': token }),
     internal: (path, json) => call(path, { json: json ?? {} }, { Authorization: 'Bearer dev:internal' }),
@@ -60,12 +62,12 @@ export async function seedGame(h: Harness, opts: { uid?: string; language?: stri
   return { id: body.game.id as string, partner, spectator, questions: body.questions as any[], uid: opts.uid ?? 'u1' };
 }
 
-export const ev = (type: string, seq: number, payload: Record<string, unknown>, id = `e${seq}-${type}`) =>
+export const ev = (type: string, seq: number, payload: Record<string, unknown>, id = `e${seq}-${type.replace('.', '-')}`) =>
   ({ id, seq, type, at: new Date(2026, 8, 16, 20, seq).toISOString(), payload });
 
 /** Play one full round through the event upload endpoint. */
 export async function playRound(h: Harness, gameId: string, questionId: string, result: 'correct' | 'wrong', n = 1, extra: Record<string, unknown> = {}) {
-  const roundId = `r${n}`;
+  const roundId = `round-${n}`;
   return h.host(`/games/${gameId}/events`, {
     json: {
       epoch: (extra.epoch as number) ?? 1, deviceId: 'dev-1',

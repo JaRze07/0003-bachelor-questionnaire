@@ -8,10 +8,16 @@ export interface PlayVerifier {
   verify(productId: string, purchaseToken: string): Promise<VerifyResult>;
 }
 
-/** Test/dev fake: tokens starting with `ok-` are active, `pending-` pending, `refund-` revoked, else unknown. */
-export function fakePlayVerifier(): PlayVerifier {
+/**
+ * Test/dev fake: tokens starting with `ok-` are active, `pending-` pending, `refund-` revoked, else unknown.
+ * `overrides` lets a test flip a token later, the way a refund does in the store.
+ */
+export function fakePlayVerifier(overrides = new Map<string, PremiumState>()): PlayVerifier & { overrides: Map<string, PremiumState> } {
   return {
+    overrides,
     async verify(_productId, token) {
+      const forced = overrides.get(token);
+      if (forced) return { state: forced, orderId: `GPA.${token}` };
       if (token.startsWith('ok-')) return { state: 'active', orderId: `GPA.${token}` };
       if (token.startsWith('pending-')) return { state: 'pending' };
       if (token.startsWith('refund-')) return { state: 'revoked', orderId: `GPA.${token}` };

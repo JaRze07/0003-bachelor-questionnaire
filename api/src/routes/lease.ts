@@ -26,11 +26,10 @@ export function leaseRoutes({ repo }: AppDeps) {
     const now = nowIso();
     if (!game.lease) {
       game.lease = { deviceId: b.deviceId, label: b.label, updatedAt: now, lastSyncAt: now };
-      await repo.games.set(game);
+      await repo.games.update(game.id, { lease: game.lease });
     } else if (game.lease.deviceId === b.deviceId) {
-      game.lease.updatedAt = now;
-      if (b.label) game.lease.label = b.label;
-      await repo.games.set(game);
+      game.lease = { ...game.lease, updatedAt: now, label: b.label || game.lease.label };
+      await repo.games.update(game.id, { lease: game.lease });
     }
     return c.json(view(game, b.deviceId));
   });
@@ -45,7 +44,7 @@ export function leaseRoutes({ repo }: AppDeps) {
       game.epoch += 1;
       game.lease = { deviceId: b.deviceId, label: b.label, updatedAt: now, lastSyncAt: now };
       game.updatedAt = now;
-      await repo.games.set(game);
+      await repo.games.update(game.id, { epoch: game.epoch, lease: game.lease, updatedAt: now });
     }
     return c.json(view(game, b.deviceId));
   });

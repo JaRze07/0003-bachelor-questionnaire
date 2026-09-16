@@ -8,7 +8,7 @@ describe('spectator page', () => {
     await h.host(`/games/${g.id}/transition`, { json: { to: 'in_progress' } });
     await playRound(h, g.id, g.questions[0].id, 'wrong', 1);
     // a started but unmarked round
-    await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [{ id: 'open-round-9', seq: 99, type: 'round.start', at: new Date().toISOString(), payload: { roundId: 'r9', questionId: g.questions[1].id } }] } });
+    await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [{ id: 'open-round-9', seq: 99, type: 'round.start', at: new Date().toISOString(), payload: { roundId: 'round-9', questionId: g.questions[1].id } }] } });
     const res = await h.token('/s/summary', g.spectator);
     const body = await res.json() as any;
     const raw = JSON.stringify(body);
@@ -27,7 +27,7 @@ describe('spectator page', () => {
     const first = await h.token('/s/summary', g.spectator);
     const etag = first.headers.get('etag')!;
     expect((await h.token('/s/summary', g.spectator, { headers: { 'If-None-Match': etag } })).status).toBe(304);
-    await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [{ id: 'fixup-round-1', seq: 500, type: 'round.fixup', at: new Date().toISOString(), payload: { roundId: 'r1', questionId: g.questions[0].id, result: 'wrong' } }] } });
+    await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [{ id: 'fixup-round-1', seq: 500, type: 'round.fixup', at: new Date().toISOString(), payload: { roundId: 'round-1', questionId: g.questions[0].id, result: 'wrong' } }] } });
     const second = await h.token('/s/summary', g.spectator);
     expect(second.headers.get('etag')).not.toBe(etag);
     expect((await second.json() as any).score.wrong).toBe(1);

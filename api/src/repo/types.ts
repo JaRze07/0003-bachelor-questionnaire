@@ -163,14 +163,18 @@ export interface Repo {
   users: {
     get(uid: string): Promise<User | null>;
     set(user: User): Promise<void>;
+    update(uid: string, fields: Partial<User>): Promise<void>;
   };
   purchases: {
     get(token: string): Promise<Purchase | null>;
     set(p: Purchase): Promise<void>;
+    listByUid(uid: string): Promise<Purchase[]>;
   };
   games: {
     get(id: string): Promise<Game | null>;
     set(game: Game): Promise<void>;
+    /** Merge a few fields without rewriting the document (avoids stomping a concurrent takeover). */
+    update(id: string, fields: Partial<Game>): Promise<void>;
     listByHost(uid: string): Promise<Game[]>;
     listIdleBefore(iso: string): Promise<Game[]>;
     deleteTree(id: string): Promise<void>;
