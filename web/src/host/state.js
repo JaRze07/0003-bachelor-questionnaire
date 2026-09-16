@@ -79,16 +79,18 @@ export async function refreshGame(gameId) {
   }
 }
 
-let syncing = null;
+const syncing = new Map();   // gameId -> running promise
 
-/** Push pending events. One run at a time; a late answer never lands on another game's snapshot. */
-export async function sync() {
-  if (!state.snapshot) return 'idle';
-  if (syncing) return syncing;
-  const gameId = state.snapshot.gameId;
-  syncing = (async () => {
+/** Push pending events. One run per game, so a second game is never skipped by another game's run. */
+export async function sync(gameId = state.snapshot?.gameId) {
+  if (!gameId) return 'idle';
+  const running = syncing.get(gameId);
+  if (running) return running;
+  const local = state.snapshot?.gameId === gameId ? state.snapshot : await loadGame(gameId);
+  if (!local) return 'idle';
+  const run = (async () => {
     try {
-      const { status, snapshot } = await pushEvents(state.api, state.snapshot);
+      const { status, snapshot } = await pushEvents(state.api, local);
       if (state.snapshot?.gameId === gameId) {
         state.snapshot = snapshot;
         state.syncStatus = status;
@@ -96,10 +98,11 @@ export async function sync() {
       }
       return status;
     } finally {
-      syncing = null;
+      syncing.delete(gameId);
     }
   })();
-  return syncing;
+  syncing.set(gameId, run);
+  return run;
 }
 
 export function setSnapshot(snapshot) {

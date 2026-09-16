@@ -73,3 +73,19 @@ describe('partner form', () => {
     expect((await h.token('/p/game', g.spectator)).status).toBe(404);
   });
 });
+
+describe('partner concurrency', () => {
+  it('lets only one of two simultaneous writes win', async () => {
+    const h = harness();
+    const g = await seedGame(h, { answer: false });
+    const q = g.questions[0];
+    const body = { questionRev: 1, baseRev: 0 };
+    const [a, b] = await Promise.all([
+      h.token(`/p/answers/${q.id}`, g.partner, { method: 'PUT', json: { ...body, text: 'first' } }),
+      h.token(`/p/answers/${q.id}`, g.partner, { method: 'PUT', json: { ...body, text: 'second' } }),
+    ]);
+    const codes = [a.status, b.status].sort();
+    expect(codes).toEqual([200, 409]);
+    expect((await h.repo.answers.get(g.id, q.id))!.rev).toBe(1);
+  });
+});

@@ -7,7 +7,7 @@ const POLL_MS = 8000;
 const STALE_MS = 20000;
 
 const token = new URLSearchParams(location.hash.slice(1)).get('t') ?? '';
-const api = createApi({ gameToken: token });
+const api = createApi({ gameToken: token, timeoutMs: 7000 });
 
 let t = null;
 let etag = null;
@@ -37,7 +37,8 @@ async function poll(first = false) {
     etag = res.__etag ?? etag;
     lastOk = Date.now();
     if (!t) {
-      t = await makeTranslator(res.language);
+      // A missing catalogue must not kill the loop: fall back to English.
+      t = await makeTranslator(res.language).catch(() => makeTranslator('en'));
       document.documentElement.lang = res.language;
       document.title = t('spectator.title');
       $('correct-label').textContent = t('score.correct');
@@ -49,7 +50,7 @@ async function poll(first = false) {
     markStale();
   } finally {
     polling = false;
-    schedule();
+    schedule();   // the loop always rearms, even after a timeout
   }
 }
 

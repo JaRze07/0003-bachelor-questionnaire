@@ -155,3 +155,44 @@ describe('hardening from the Codex review', () => {
     expect((await fix.json() as any).acknowledged).toHaveLength(1);
   });
 });
+
+describe('second review fixes', () => {
+  it('does not name the same guest twice when an upload is retried', async () => {
+    const h = harness();
+    const g = await seedGame(h);
+    const user = (await h.repo.users.get('u1'))!;
+    await h.repo.users.set({ ...user, premium: { state: 'active' } });
+    await h.host(`/games/${g.id}`, { method: 'PATCH', json: { settings: { penaltyScheme: 'drink_or_dare', customPenalties: [], rules: { strikeBack: true, doubleOrNothing: false }, randomOrder: false } } });
+    await start(h, g);
+    const events = [
+      ev('round.start', 1, { roundId: 'round-1', questionId: g.questions[0].id, penalty: { type: 'dare', label: 'dare', description: 'x' } }),
+      ev('round.mark', 2, { roundId: 'round-1', result: 'correct' }),
+      ev('round.strikeBack', 3, { roundId: 'round-1', guest: 'Ola' }),
+    ];
+    await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events } });
+    // same action, new event ids (the client resent after a timeout)
+    await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: events.map((e) => ({ ...e, id: `${e.id}-retry` })) } });
+    expect((await h.repo.rounds.list(g.id))[0].strikeBack).toEqual([{ guest: 'Ola' }]);
+  });
+
+  it('marks a voided round so its question returns to the queue', async () => {
+    const h = harness();
+    const g = await seedGame(h); await start(h, g);
+    await playRound(h, g.id, g.questions[0].id, 'wrong', 1);
+    await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [ev('round.fixup', 60, { roundId: 'round-1', questionId: g.questions[0].id, result: 'unplayed' })] } });
+    expect((await h.repo.rounds.list(g.id))[0].voided).toBe(true);
+  });
+
+  it('keeps a takeover when a derived refresh runs after it', async () => {
+    const h = harness();
+    const g = await seedGame(h); await start(h, g);
+    await h.host(`/games/${g.id}/lease`, { json: { deviceId: 'dev-1', label: 'A' } });
+    await h.host(`/games/${g.id}/lease/takeover`, { json: { deviceId: 'dev-2', label: 'B', confirm: true } });
+    // an unrelated host mutation must not restore the old epoch or holder
+    await h.host(`/games/${g.id}`, { method: 'PATCH', json: { title: 'Renamed' } });
+    const game = (await h.repo.games.get(g.id))!;
+    expect(game.epoch).toBe(2);
+    expect(game.lease!.deviceId).toBe('dev-2');
+    expect(game.title).toBe('Renamed');
+  });
+});

@@ -8,7 +8,9 @@ export class ApiError extends Error {
   }
 }
 
-export function createApi({ baseUrl, getToken, gameToken } = {}) {
+export const DEFAULT_TIMEOUT_MS = 12000;
+
+export function createApi({ baseUrl, getToken, gameToken, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   const base = (baseUrl || globalThis.API_BASE || 'http://localhost:8080').replace(/\/+$/, '');
 
   async function request(method, path, body, extraHeaders = {}) {
@@ -19,11 +21,19 @@ export function createApi({ baseUrl, getToken, gameToken } = {}) {
       if (token) headers.Authorization = `Bearer ${token}`;
     }
     if (gameToken) headers['X-Game-Token'] = gameToken;
+    // A captive portal or a half-open socket must look like "offline", not like a frozen app.
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
     let res;
     try {
-      res = await fetch(`${base}/v1${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+      res = await fetch(`${base}/v1${path}`, {
+        method, headers, signal: controller?.signal,
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
     } catch {
       throw new ApiError(0, 'offline', 'No connection');
+    } finally {
+      if (timer) clearTimeout(timer);
     }
     if (res.status === 204 || res.status === 304) return { status: res.status };
     const text = await res.text();

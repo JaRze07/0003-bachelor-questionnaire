@@ -1,5 +1,5 @@
 // Uploads the journal, drains the outbox, folds in partner answers. Never overwrites accepted local events.
-import { dropOutbox, listOutbox, markAcked, mergeServer, moveToDivergent, pendingEvents, saveGame } from './journal.js';
+import { dropOutbox, listOutbox, markAcked, mergeAnswers, mergeServer, moveToDivergent, pendingEvents } from './journal.js';
 
 export const OFFLINE = 'offline';
 
@@ -23,12 +23,12 @@ export async function pushEvents(api, snapshot) {
     const rejected = (res.rejected ?? []).map((r) => r.id);
     if (rejected.length) await moveToDivergent(snapshot.gameId, events.filter((e) => rejected.includes(e.id)));
     // Merge into the row as it stands now: a round may have been played during the request.
-    const merged = await mergeServer(snapshot.gameId, {
-      answers: { ...snapshot.answers, ...(res.partnerAnswers ?? {}) },
-      revision: res.revision ?? snapshot.revision,
+    const merged = await mergeServer(snapshot.gameId, (current) => ({
+      answers: mergeAnswers(current.answers, res.partnerAnswers ?? {}),
+      revision: Math.max(current.revision ?? 0, res.revision ?? 0),
       lastServerSync: new Date().toISOString(),
-      rejectedEvents: rejected.length ? (snapshot.rejectedEvents ?? 0) + rejected.length : snapshot.rejectedEvents,
-    });
+      rejectedEvents: rejected.length ? (current.rejectedEvents ?? 0) + rejected.length : current.rejectedEvents,
+    }));
     return { status: 'synced', snapshot: merged ?? snapshot, rejected };
   } catch (err) {
     if (err.offline) return { status: OFFLINE, snapshot };
@@ -58,17 +58,21 @@ export async function drainOutbox(api) {
 
 /** Pull the server copy into the local snapshot without discarding unsynced local rounds. */
 export async function pullGame(api, snapshot) {
+  await pendingEvents(snapshot.gameId); // keeps the read in one place for tests
   const server = await api.get(`/games/${snapshot.gameId}`);
-  const pending = await pendingEvents(snapshot.gameId);
-  const fields = {
-    game: server.game,
-    questions: server.questions,
-    answers: server.answers,
-    epoch: server.epoch,
-    revision: server.revision,
-    lastServerSync: new Date().toISOString(),
-  };
-  // Local rounds win while anything is still unsent: the party-time journal is the source of truth.
-  if (!pending.length) fields.rounds = server.rounds;
-  return (await mergeServer(snapshot.gameId, fields)) ?? { ...snapshot, ...fields };
+  return (await mergeServer(snapshot.gameId, (current) => {
+    // A response older than what is already stored is dropped rather than applied.
+    if ((server.revision ?? 0) < (current.revision ?? 0)) return null;
+    const fields = {
+      game: server.game,
+      questions: server.questions,
+      answers: mergeAnswers(current.answers, server.answers ?? {}),
+      epoch: Math.max(current.epoch ?? 1, server.epoch ?? 1),
+      revision: server.revision,
+      lastServerSync: new Date().toISOString(),
+    };
+    // Local rounds win while anything is still unsent: the party-time journal is the source of truth.
+    if (!(current.localSeq > 0 && (current.rounds ?? []).some((r) => !r.syncedAt))) fields.rounds = server.rounds;
+    return fields;
+  })) ?? snapshot;
 }

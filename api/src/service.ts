@@ -51,7 +51,19 @@ export async function refreshDerived(repo: Repo, full: FullGame, opts: { activit
   if (opts.bump !== false) game.revision += 1;
   game.updatedAt = now;
   if (opts.activity) game.lastActivityAt = now;
-  await repo.games.set(game);
+  // Only the fields this function owns. Writing the whole document here would restore a stale epoch,
+  // lease or token set captured before a concurrent takeover or link regeneration.
+  await repo.games.update(game.id, {
+    counts: game.counts, status: game.status, revision: game.revision, updatedAt: now,
+    ...(opts.activity ? { lastActivityAt: now } : {}),
+    ...(game.finishedAt ? { finishedAt: game.finishedAt } : {}),
+    ...(game.partnerOpenedAt ? { partnerOpenedAt: game.partnerOpenedAt } : {}),
+    ...(game.partnerLastAnswerAt ? { partnerLastAnswerAt: game.partnerLastAnswerAt } : {}),
+    ...(game.hiddenQuestionIds ? { hiddenQuestionIds: game.hiddenQuestionIds } : {}),
+    ...(game.settings ? { settings: game.settings } : {}),
+    ...(game.title !== undefined ? { title: game.title } : {}),
+    ...(game.language ? { language: game.language } : {}),
+  });
   await repo.projections.set(buildProjection(game, rounds, playable.length, now));
   return game;
 }

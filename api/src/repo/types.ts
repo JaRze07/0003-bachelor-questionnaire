@@ -121,6 +121,8 @@ export interface Round {
   epoch: number;
   penalty: Penalty;
   result: RoundResult;
+  /** A round holds its question while it exists; a fix-up back to "unplayed" voids it and frees the question. */
+  voided?: boolean;
   doubled: boolean;
   strikeBack: { guest: string }[];
   startedAt: string;
@@ -169,6 +171,10 @@ export interface Repo {
     get(token: string): Promise<Purchase | null>;
     set(p: Purchase): Promise<void>;
     listByUid(uid: string): Promise<Purchase[]>;
+    /** Bind a token to a uid, atomically. Returns the owner if it already belongs to someone else. */
+    claim(token: string, uid: string): Promise<{ ok: true } | { ok: false; uid: string }>;
+    /** Drop a reservation that never became a verified purchase. */
+    release(token: string, uid: string): Promise<void>;
   };
   games: {
     get(id: string): Promise<Game | null>;
@@ -190,6 +196,8 @@ export interface Repo {
     list(gameId: string): Promise<Answer[]>;
     get(gameId: string, questionId: string): Promise<Answer | null>;
     set(gameId: string, a: Answer): Promise<void>;
+    /** Write only if the stored revision is still `expectedRev` (0 = no answer yet). */
+    setIfRev(gameId: string, a: Answer, expectedRev: number): Promise<{ ok: true } | { ok: false; current: Answer | null }>;
     delete(gameId: string, questionId: string): Promise<void>;
   };
   rounds: {

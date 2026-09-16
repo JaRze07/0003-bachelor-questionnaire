@@ -79,13 +79,13 @@ const withTimeout = (promise, ms) => Promise.race([
  */
 export async function maybeInterstitial(breakName, premium) {
   if (interstitialInFlight) return false;
-  const use = await meta('adUse', { activeSeconds: 0, lastInterstitialAt: null });
-  if (!interstitialAllowed(use, breakName, premium)) return false;
-  interstitialInFlight = true;
-  await setMeta('adUse', afterInterstitial(use));   // spend it first
-  const p = plugin();
-  if (!p) { interstitialInFlight = false; return false; }
+  interstitialInFlight = true;                      // taken before the first await
   try {
+    const use = await meta('adUse', { activeSeconds: 0, lastInterstitialAt: null });
+    if (!interstitialAllowed(use, breakName, premium)) return false;
+    await setMeta('adUse', afterInterstitial(use)); // spend the hour's allowance before showing
+    const p = plugin();
+    if (!p) return false;
     await withTimeout(p.prepareInterstitial({ adId: unitIds().interstitial }), 5000);
     await withTimeout(p.showInterstitial(), 5000);
     return true;

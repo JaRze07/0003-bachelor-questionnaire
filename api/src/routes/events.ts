@@ -71,7 +71,7 @@ export function applyEvent(full: FullGame, e: GameEvent): boolean {
       rounds.push({
         id: roundId, n: rounds.length + 1, questionId: q.id, frozen, epoch: e.epoch,
         penalty: penalty.success ? penalty.data : { type: 'none', label: '', description: '' },
-        result: 'unplayed', doubled: false, strikeBack: [], startedAt: e.at || e.receivedAt, syncedAt: e.receivedAt,
+        result: 'unplayed', voided: false, doubled: false, strikeBack: [], startedAt: e.at || e.receivedAt, syncedAt: e.receivedAt,
       });
       if (game.status !== 'in_progress' && game.status !== 'finished') game.status = 'in_progress';
       return true;
@@ -102,7 +102,10 @@ export function applyEvent(full: FullGame, e: GameEvent): boolean {
       if (!round || round.result !== 'correct' || !round.frozen.rules.strikeBack) return false;
       const guest = str(p.guest, LIMITS.guestName).trim();
       const max = round.doubled ? LIMITS.strikeBackMax : 1;
-      if (!guest || round.strikeBack.length >= max) return false;
+      if (!guest) return false;
+      // Idempotent: a retried upload must not name the same guest twice.
+      if (round.strikeBack.some((g) => g.guest === guest)) return true;
+      if (round.strikeBack.length >= max) return false;
       round.strikeBack.push({ guest });
       return true;
     }
@@ -115,11 +118,13 @@ export function applyEvent(full: FullGame, e: GameEvent): boolean {
       if (result === 'unplayed') {
         if (!existing) return false;
         existing.result = 'unplayed';
+        existing.voided = true;          // the question goes back into the queue
         return true;
       }
       const penalty = penaltySchema.safeParse(p.penalty);
       if (existing) {
         existing.result = result;
+        existing.voided = false;
         if (penalty.success) existing.penalty = penalty.data;
         existing.markedAt = e.at || e.receivedAt;
         return true;
@@ -130,7 +135,7 @@ export function applyEvent(full: FullGame, e: GameEvent): boolean {
         id: roundId || `fix-${e.id}`, n: rounds.length + 1, questionId: q.id,
         frozen: { questionRev: q.rev, text: q.text, theme: q.theme, answer: answerFor(q, answers.find((a) => a.questionId === q.id) ?? null), penaltyScheme: game.settings.penaltyScheme, rules: { ...game.settings.rules } },
         epoch: e.epoch, penalty: penalty.success ? penalty.data : { type: 'none', label: '', description: '' },
-        result, doubled: false, strikeBack: [], startedAt: e.at || e.receivedAt, markedAt: e.at || e.receivedAt, syncedAt: e.receivedAt,
+        result, voided: false, doubled: false, strikeBack: [], startedAt: e.at || e.receivedAt, markedAt: e.at || e.receivedAt, syncedAt: e.receivedAt,
       });
       if (game.status !== 'in_progress' && game.status !== 'finished') game.status = 'in_progress';
       return true;
@@ -155,9 +160,14 @@ export function eventRoutes({ repo }: AppDeps) {
     const game = c.get('game');
     if (b.epoch !== game.epoch) throw conflict('stale_epoch', 'Another device took over this game', { epoch: game.epoch });
     // The epoch alone does not say which device holds the game: a second phone of the same host
-    // must take over explicitly before it can write (spec §7).
+    // must take over explicitly before it can write (spec §7). A game with no holder yet (the host
+    // played before the first lease call went through) is claimed by the uploading device.
     if (game.lease && game.lease.deviceId !== b.deviceId) {
       throw conflict('not_lease_holder', 'Another device is running this game', { epoch: game.epoch, holder: game.lease.label });
+    }
+    if (!game.lease) {
+      game.lease = { deviceId: b.deviceId, label: '', updatedAt: nowIso(), lastSyncAt: nowIso() };
+      await repo.games.update(game.id, { lease: game.lease });
     }
     const full = await loadFull(repo, game);
     const acknowledged: string[] = [];

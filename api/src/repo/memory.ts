@@ -35,6 +35,18 @@ export function createMemoryRepo(): Repo & { dump(): unknown } {
       async get(token) { return clone(purchases.get(token) ?? null); },
       async set(p) { purchases.set(p.token, clone(p)); },
       async listByUid(uid) { return clone([...purchases.values()].filter((p) => p.uid === uid)); },
+      async claim(token, uid) {
+        const existing = purchases.get(token);
+        if (existing && existing.uid !== uid) return { ok: false, uid: existing.uid };
+        if (!existing) {
+          purchases.set(token, { token, uid, platform: 'play', productId: '', state: 'pending', boundAt: new Date().toISOString(), verifiedAt: new Date().toISOString() });
+        }
+        return { ok: true };
+      },
+      async release(token, uid) {
+        const existing = purchases.get(token);
+        if (existing && existing.uid === uid && existing.productId === '') purchases.delete(token);
+      },
     },
     games: {
       async get(id) { return clone(games.get(id) ?? null); },
@@ -62,6 +74,18 @@ export function createMemoryRepo(): Repo & { dump(): unknown } {
       async list(gameId) { return clone([...bucket(answers, gameId).values()]); },
       async get(gameId, qid) { return clone(bucket(answers, gameId).get(qid) ?? null); },
       async set(gameId, a) { bucket(answers, gameId).set(a.questionId, clone(a)); },
+      async setIfRev(gameId, a, expectedRev) {
+        const b = bucket(answers, gameId);
+        const current = b.get(a.questionId) ?? null;
+        const currentRev = current && current.questionRev === a.questionRev ? current.rev : 0;
+        if (currentRev !== expectedRev) return { ok: false, current: clone(current) };
+        b.set(a.questionId, clone(a));
+        return { ok: true };
+      },
+      async release(token, uid) {
+        const existing = purchases.get(token);
+        if (existing && existing.uid === uid && existing.productId === '') purchases.delete(token);
+      },
       async delete(gameId, qid) { bucket(answers, gameId).delete(qid); },
     },
     rounds: {

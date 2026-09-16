@@ -42,12 +42,15 @@ export function partnerRoutes({ repo }: AppDeps) {
     const q = playableQuestions(game, full.questions).find((x) => x.id === c.req.param('qId'));
     if (!q) throw notFound('question_not_found');
     if (q.rev !== b.questionRev) throw conflict('question_changed', undefined, { questionRev: q.rev, text: q.text });
-    const existing = full.answers.find((a) => a.questionId === q.id);
-    const currentRev = existing && existing.questionRev === q.rev ? existing.rev : 0;
-    if (b.baseRev !== currentRev) throw conflict('answer_conflict', undefined, { current: existing ? { text: existing.text, rev: existing.rev } : null });
     const now = nowIso();
-    const saved = { questionId: q.id, text: b.text, rev: currentRev + 1, questionRev: q.rev, updatedAt: now };
-    await repo.answers.set(game.id, saved);
+    const saved = { questionId: q.id, text: b.text, rev: b.baseRev + 1, questionRev: q.rev, updatedAt: now };
+    // Compare-and-set: two open partner pages cannot both write the same next revision.
+    const written = await repo.answers.setIfRev(game.id, saved, b.baseRev);
+    if (!written.ok) {
+      throw conflict('answer_conflict', undefined, {
+        current: written.current ? { text: written.current.text, rev: written.current.rev } : null,
+      });
+    }
     full.answers = [...full.answers.filter((a) => a.questionId !== q.id), saved];
     game.partnerLastAnswerAt = now;
     await refreshDerived(repo, full, { activity: true });

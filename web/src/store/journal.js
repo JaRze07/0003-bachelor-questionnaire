@@ -57,10 +57,25 @@ export async function mergeServer(gameId, fields) {
   return tx('games', 'readwrite', async (s, _t, w) => {
     const current = await w(s.games.get(gameId));
     if (!current) return null;
-    const merged = { ...current, ...fields };
+    const patch = typeof fields === 'function' ? fields(current) : fields;
+    if (!patch) return current;
+    const merged = { ...current, ...patch };
     await w(s.games.put(merged));
     return merged;
   });
+}
+
+/** Keep the newer of two answers for each question (by question revision, then answer revision). */
+export function mergeAnswers(current = {}, incoming = {}) {
+  const out = { ...current };
+  for (const [id, answer] of Object.entries(incoming)) {
+    const have = out[id];
+    const newer = !have
+      || (answer.questionRev ?? 0) > (have.questionRev ?? 0)
+      || ((answer.questionRev ?? 0) === (have.questionRev ?? 0) && (answer.rev ?? 0) >= (have.rev ?? 0));
+    if (newer) out[id] = answer;
+  }
+  return out;
 }
 
 export async function pendingEvents(gameId, limit = 200) {

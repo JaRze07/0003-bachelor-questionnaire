@@ -174,14 +174,18 @@ async function flush(question, text) {
     return true;
   } catch (err) {
     if (err.offline) { setState(question.id, 'offline'); return false; }
-    if (err.code === 'answer_conflict') { r.inFlight = false; return resolveConflict(question, text, err.details?.current); }
+    // The lock stays held through the dialog, so no second request starts behind it.
+    if (err.code === 'answer_conflict') return resolveConflict(question, r.draft ?? text, err.details?.current);
     if (err.code === 'question_changed') { toast(t('partner.conflict')); await reload(); return false; }
     setState(question.id, 'offline');
     return false;
   } finally {
     r.inFlight = false;
-    // Typing continued while the request was in flight: send the newest text.
-    if (r.draft !== null && r.draft !== (game.answers?.[question.id]?.text ?? '')) queueSave(question, r.draft);
+    // Typing continued while the request was in flight: send the newest text, once.
+    const newest = r.draft;
+    if (newest !== null && newest !== (game.answers?.[question.id]?.text ?? '') && !r.timer) {
+      queueSave(question, newest);
+    }
   }
 }
 
@@ -192,7 +196,11 @@ async function resolveConflict(question, mine, current) {
     confirmLabel: t('partner.keepMine'),
   });
   revs.set(question.id, current?.rev ?? 0);
-  if (keepMine) return flush(question, mine);
+  const r = record(question.id);
+  if (keepMine) {
+    r.inFlight = false;                 // released only now: one retry, with the newest text
+    return flush(question, r.draft ?? mine);
+  }
   game.answers = { ...game.answers, [question.id]: { text: current?.text ?? '', rev: current?.rev ?? 0, questionRev: question.rev } };
   record(question.id).draft = null;
   setState(question.id, 'saved');

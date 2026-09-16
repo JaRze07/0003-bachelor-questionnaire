@@ -7,7 +7,9 @@
  */
 export function unplayed(questions, rounds, hiddenIds = []) {
   const hidden = new Set(hiddenIds);
-  const held = new Set(rounds.filter((r) => !r.voided && (r.started || r.result !== 'unplayed')).map((r) => r.questionId));
+  const held = new Set(rounds
+    .filter((r) => !r.voided && (r.started || r.startedAt || r.result !== 'unplayed'))
+    .map((r) => r.questionId));
   return questions.filter((q) => !hidden.has(q.id) && !held.has(q.id)).sort((a, b) => a.order - b.order);
 }
 

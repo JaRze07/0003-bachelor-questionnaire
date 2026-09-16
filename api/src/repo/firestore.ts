@@ -36,7 +36,28 @@ export function createFirestoreRepo(db = new Firestore({ ignoreUndefinedProperti
     purchases: {
       async get(token) { return data<Purchase>(await db.collection('purchases').doc(purchaseKey(token)).get()); },
       async set(p) { await db.collection('purchases').doc(purchaseKey(p.token)).set(p); },
-      async listByUid(uid) { return all<Purchase>(db.collection('purchases').where('uid', '==', uid).limit(50)); },
+      async listByUid(uid) { return all<Purchase>(db.collection('purchases').where('uid', '==', uid).limit(500)); },
+      async claim(token, uid) {
+        const ref = db.collection('purchases').doc(purchaseKey(token));
+        return db.runTransaction(async (trx) => {
+          const snap = await trx.get(ref);
+          const existing = snap.exists ? (snap.data() as Purchase) : null;
+          if (existing && existing.uid !== uid) return { ok: false as const, uid: existing.uid };
+          if (!existing) {
+            const now = new Date().toISOString();
+            trx.create(ref, { token, uid, platform: 'play', productId: '', state: 'pending', boundAt: now, verifiedAt: now } satisfies Purchase);
+          }
+          return { ok: true as const };
+        });
+      },
+      async release(token, uid) {
+        const ref = db.collection('purchases').doc(purchaseKey(token));
+        await db.runTransaction(async (trx) => {
+          const snap = await trx.get(ref);
+          const existing = snap.exists ? (snap.data() as Purchase) : null;
+          if (existing && existing.uid === uid && existing.productId === '') trx.delete(ref);
+        });
+      },
     },
     games: {
       async get(id) { return data<Game>(await games.doc(id).get()); },
@@ -68,6 +89,25 @@ export function createFirestoreRepo(db = new Firestore({ ignoreUndefinedProperti
       async list(gameId) { return all<Answer>(col(gameId, 'answers')); },
       async get(gameId, qid) { return data<Answer>(await col(gameId, 'answers').doc(qid).get()); },
       async set(gameId, a) { await col(gameId, 'answers').doc(a.questionId).set(a); },
+      async setIfRev(gameId, a, expectedRev) {
+        const ref = col(gameId, 'answers').doc(a.questionId);
+        return db.runTransaction(async (trx) => {
+          const snap = await trx.get(ref);
+          const current = snap.exists ? (snap.data() as Answer) : null;
+          const currentRev = current && current.questionRev === a.questionRev ? current.rev : 0;
+          if (currentRev !== expectedRev) return { ok: false as const, current };
+          trx.set(ref, a);
+          return { ok: true as const };
+        });
+      },
+      async release(token, uid) {
+        const ref = db.collection('purchases').doc(purchaseKey(token));
+        await db.runTransaction(async (trx) => {
+          const snap = await trx.get(ref);
+          const existing = snap.exists ? (snap.data() as Purchase) : null;
+          if (existing && existing.uid === uid && existing.productId === '') trx.delete(ref);
+        });
+      },
       async delete(gameId, qid) { await col(gameId, 'answers').doc(qid).delete(); },
     },
     rounds: {

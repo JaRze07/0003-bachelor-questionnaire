@@ -11,12 +11,18 @@ export const PRODUCT_ID = 'premium_forever';
  */
 export async function applyPurchase(repo: Repo, play: PlayVerifier, user: User, platform: Platform, productId: string, token: string): Promise<User> {
   if (productId !== PRODUCT_ID) throw conflict('unknown_product');
+  // Claim first, atomically: two accounts verifying the same token cannot both end up premium.
+  const claim = await repo.purchases.claim(token, user.uid);
+  if (!claim.ok) throw conflict('purchase_bound_elsewhere', 'This purchase is linked to another account');
   const existing = await repo.purchases.get(token);
-  if (existing && existing.uid !== user.uid) throw conflict('purchase_bound_elsewhere', 'This purchase is linked to another account');
   const result = await play.verify(productId, token);
   // 'unknown' means the store could not be reached: bind nothing, so a Play outage cannot
   // hand a token to the wrong account or park it forever.
-  if (result.state === 'unknown' && !existing) throw conflict('verification_unavailable', 'The store could not confirm this purchase yet');
+  if (result.state === 'unknown' && (!existing || existing.productId === '')) {
+    // Nothing was ever verified for this token: drop the reservation so a later attempt can claim it.
+    await repo.purchases.release(token, user.uid);
+    throw conflict('verification_unavailable', 'The store could not confirm this purchase yet');
+  }
   const now = nowIso();
   await repo.purchases.set({
     token, uid: user.uid, platform, productId,
