@@ -1,0 +1,27 @@
+{
+  "language": "en",
+  "version": 1,
+  "notes": "Generic 'how well do you know your partner' set. Written from the partner's point of view ('I', 'me'); the host reads them to the guest of honour who guesses the partner's answer. Tone: playful, safe for a mixed table. `context` is for translators: what kind of answer is expected.",
+  "questions": [
+    { "id": "en-001", "theme": "Music", "text": "What is my go-to karaoke song?", "context": "A song title, possibly with the artist." },
+    { "id": "en-002", "theme": "Travel", "text": "Beach or mountains?", "context": "One of the two, maybe with a reason." },
+    { "id": "en-003", "theme": "Us", "text": "What was the first film we watched together?", "context": "A film title; 'I don't remember' is a fun answer too." },
+    { "id": "en-004", "theme": "Food", "text": "What would I order at a restaurant if money were no object?", "context": "A dish or a whole menu." },
+    { "id": "en-005", "theme": "Habits", "text": "What is my biggest pet peeve?", "context": "A small thing that annoys the partner." },
+    { "id": "en-006", "theme": "Past", "text": "Who was my celebrity crush as a teenager?", "context": "A famous person." },
+    { "id": "en-007", "theme": "Travel", "text": "What is the one thing I always forget to pack?", "context": "An item, e.g. charger, toothbrush." },
+    { "id": "en-008", "theme": "Preferences", "text": "Cats or dogs?", "context": "One of the two (or 'both', 'neither')." },
+    { "id": "en-009", "theme": "Screen", "text": "What is my guilty-pleasure TV show?", "context": "A show the partner is slightly embarrassed to love." },
+    { "id": "en-010", "theme": "Us", "text": "What is my favourite thing about you?", "context": "A trait or habit of the guest of honour." },
+    { "id": "en-011", "theme": "Habits", "text": "What would I do with a free Sunday and no plans?", "context": "An activity." },
+    { "id": "en-012", "theme": "Phone", "text": "What is my most-used emoji?", "context": "An emoji or its name." },
+    { "id": "en-013", "theme": "Past", "text": "What was my first job?", "context": "A job title or place." },
+    { "id": "en-014", "theme": "Food", "text": "Coffee or tea, and how do I take it?", "context": "Drink plus milk/sugar details." },
+    { "id": "en-015", "theme": "Home", "text": "Which household chore do I secretly hate the most?", "context": "A chore." },
+    { "id": "en-016", "theme": "Travel", "text": "What is my dream holiday destination?", "context": "A place." },
+    { "id": "en-017", "theme": "Music", "text": "Name a song that always gets me on the dance floor.", "context": "A song title." },
+    { "id": "en-018", "theme": "Habits", "text": "What am I most likely to be late for?", "context": "An event or type of appointment." },
+    { "id": "en-019", "theme": "Past", "text": "What did I want to be when I was eight?", "context": "A childhood dream job." },
+    { "id": "en-020", "theme": "Party", "text": "What is my favourite way to celebrate good news?", "context": "An activity, place or ritual." }
+  ]
+}

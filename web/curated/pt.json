@@ -1,0 +1,127 @@
+{
+  "language": "pt",
+  "version": 1,
+  "notes": "Curated set for pt, translated from en.json with per-question context by Codex (read-only), reviewed by Claude. Localised, not literal.",
+  "questions": [
+    {
+      "id": "en-001",
+      "theme": "Música",
+      "text": "Qual música eu sempre escolho no karaokê?",
+      "context": "A song title, possibly with the artist."
+    },
+    {
+      "id": "en-002",
+      "theme": "Viagens",
+      "text": "O que eu escolho: praia ou montanha?",
+      "context": "One of the two, maybe with a reason."
+    },
+    {
+      "id": "en-003",
+      "theme": "Nós",
+      "text": "Qual foi o primeiro filme que vimos juntos?",
+      "context": "A film title; 'I don't remember' is a fun answer too."
+    },
+    {
+      "id": "en-004",
+      "theme": "Comida",
+      "text": "O que eu pediria num restaurante se dinheiro não fosse problema?",
+      "context": "A dish or a whole menu."
+    },
+    {
+      "id": "en-005",
+      "theme": "Hábitos",
+      "text": "Qual pequena coisa mais me irrita?",
+      "context": "A small thing that annoys the partner."
+    },
+    {
+      "id": "en-006",
+      "theme": "Passado",
+      "text": "Por qual celebridade eu tinha uma paixonite na adolescência?",
+      "context": "A famous person."
+    },
+    {
+      "id": "en-007",
+      "theme": "Viagens",
+      "text": "O que eu sempre esqueço de colocar na mala?",
+      "context": "An item, e.g. charger, toothbrush."
+    },
+    {
+      "id": "en-008",
+      "theme": "Preferências",
+      "text": "O que eu prefiro: gatos ou cachorros?",
+      "context": "One of the two (or 'both', 'neither')."
+    },
+    {
+      "id": "en-009",
+      "theme": "Tela",
+      "text": "Qual programa de TV eu adoro, mas tenho vergonha de admitir?",
+      "context": "A show the partner is slightly embarrassed to love."
+    },
+    {
+      "id": "en-010",
+      "theme": "Nós",
+      "text": "O que eu mais gosto em você?",
+      "context": "A trait or habit of the guest of honour."
+    },
+    {
+      "id": "en-011",
+      "theme": "Hábitos",
+      "text": "O que eu faria num domingo livre e sem planos?",
+      "context": "An activity."
+    },
+    {
+      "id": "en-012",
+      "theme": "Celular",
+      "text": "Qual é o emoji que eu mais uso?",
+      "context": "An emoji or its name."
+    },
+    {
+      "id": "en-013",
+      "theme": "Passado",
+      "text": "Qual foi meu primeiro emprego?",
+      "context": "A job title or place."
+    },
+    {
+      "id": "en-014",
+      "theme": "Comida",
+      "text": "Café ou chá, e como eu gosto de tomar?",
+      "context": "Drink plus milk/sugar details."
+    },
+    {
+      "id": "en-015",
+      "theme": "Casa",
+      "text": "Qual tarefa doméstica eu secretamente mais odeio?",
+      "context": "A chore."
+    },
+    {
+      "id": "en-016",
+      "theme": "Viagens",
+      "text": "Qual é o destino das minhas férias dos sonhos?",
+      "context": "A place."
+    },
+    {
+      "id": "en-017",
+      "theme": "Música",
+      "text": "Diga uma música que sempre me leva para a pista de dança.",
+      "context": "A song title."
+    },
+    {
+      "id": "en-018",
+      "theme": "Hábitos",
+      "text": "Para que tipo de compromisso eu mais me atraso?",
+      "context": "An event or type of appointment."
+    },
+    {
+      "id": "en-019",
+      "theme": "Passado",
+      "text": "O que eu queria ser quando tinha oito anos?",
+      "context": "A childhood dream job."
+    },
+    {
+      "id": "en-020",
+      "theme": "Festa",
+      "text": "Qual é meu jeito favorito de comemorar uma boa notícia?",
+      "context": "An activity, place or ritual."
+    }
+  ]
+}

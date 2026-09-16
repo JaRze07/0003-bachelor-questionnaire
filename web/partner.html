@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0b12">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>Your answers</title>
+<link rel="stylesheet" href="styles.css?v=1">
+</head>
+<body>
+<main class="page" id="page">
+  <header class="topbar"><h1 class="brand" id="title">…</h1></header>
+
+  <div id="loading" class="lede">…</div>
+
+  <div id="gone" class="notice notice-warn" hidden></div>
+
+  <section id="form" hidden>
+    <p class="lede small" id="intro"></p>
+    <div class="notice notice-info" id="new-banner" hidden></div>
+    <div class="notice notice-warn" id="readonly-banner" hidden></div>
+    <div class="progress-bar"><span id="progress"></span></div>
+    <p class="q-counter" id="counter"></p>
+
+    <div id="one-view">
+      <div class="card">
+        <p class="kicker" id="q-theme"></p>
+        <p class="question-text" id="q-text"></p>
+        <label class="field">
+          <textarea id="q-answer" maxlength="500" rows="4" enterkeyhint="done"></textarea>
+        </label>
+        <p class="char-count"><span id="q-count">0</span>/500</p>
+        <p class="save-state" id="save-state"></p>
+      </div>
+      <div class="row">
+        <button class="btn btn-ghost grow" id="btn-prev"></button>
+        <button class="btn btn-primary grow" id="btn-next"></button>
+      </div>
+    </div>
+
+    <div id="list-view" class="list" hidden></div>
+
+    <button class="btn btn-quiet" id="btn-toggle-view"></button>
+    <button class="btn btn-primary btn-huge" id="btn-done"></button>
+    <button class="btn btn-quiet" id="btn-report"></button>
+  </section>
+
+  <div id="modal-root"></div>
+</main>
+<script type="module" src="src/partner.js"></script>
+</body>
+</html>

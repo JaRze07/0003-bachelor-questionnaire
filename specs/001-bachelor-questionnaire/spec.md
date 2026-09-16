@@ -21,9 +21,12 @@ app stores: a **free tier** with curated question sets in five languages and lig
 
 ---
 
-## 2. Baseline: what exists today
+## 2. Baseline: the one-party app (retired 2026-09-16)
 
-Built and working; the generalisation keeps the gameplay and replaces the plumbing.
+The hand-built game for one party was the starting point. Its gameplay is preserved in the new host app; its
+plumbing (GitHub Pages, the Cloudflare Worker writing `results.json`, the single-file build) is gone, together
+with the original party's names, questions and seed rounds. The table below is kept as the record of what had
+to survive the rewrite.
 
 | Area | Current behaviour |
 |---|---|
@@ -38,9 +41,9 @@ Built and working; the generalisation keeps the gameplay and replaces the plumbi
 | Live sync (optional) | Cloudflare Worker with a personal GitHub token commits `results.json`; ~8 s polling; spectators read-only; party key for writes |
 | Single-file build | One offline HTML file |
 
-Weaknesses to remove: hardcoded names, questions and seed rounds; partner cannot enter answers; GitHub repo
-used as a database (token risk, rate limits, slow propagation, last-write-wins); Cloudflare Worker deployed by
-hand without a reproducible login (retired, §9).
+Weaknesses removed: hardcoded names, questions and seed rounds; the partner could not enter answers; the GitHub
+repo was used as a database (token risk, rate limits, slow propagation, last-write-wins); the Cloudflare Worker
+was deployed by hand without a reproducible login.
 
 ---
 
@@ -73,7 +76,7 @@ draft ──► awaiting partner ──► ready ──► in progress ──►
                                                   the partner link shows the new ones as "n new questions"
 ```
 
-- **Draft**: host creates a game, picks the language (default: device language, §6.5). Free: curated set loaded. Premium: curated set or blank. The chosen curated set is **copied into the game once**; it is never swapped afterwards.
+- **Draft**: only a transient state. Creating a game already issues both links, so a new game opens directly in *awaiting partner*; the host picks the language (default: device language, §6.5) and gets the curated set (premium: curated or blank), **copied into the game once** and never swapped afterwards.
 - **Awaiting partner**: partner link sent. Host sees status: *not opened · in progress (n/N) · complete · n new unanswered*.
 - **Ready**: all current questions answered, or host chose to start with partial answers (§6.1 FR-011).
 - **In progress**: rounds are played; state is local-first (§7). Questions added now go to the partner link as well; a round can only use a question that has an answer (or a host-supplied one).
@@ -162,8 +165,8 @@ non-blank answer.
   unmarked rounds and deleted questions are never part of that projection (§5.5, §8).
 - **FR-015** Game language controls question content and all game-specific text on host, partner and spectator
   surfaces. The device language is used only for the host app before a game is loaded (home, sign-in, settings).
-  Game language can be changed only in draft, before the partner link was opened and before any answer exists; the
-  change replaces the curated bank after confirmation. Custom questions are not translated automatically.
+  Game language can be changed until the partner opens the link, as long as no answer
+  exists and the game has not started; the change replaces the curated bank after confirmation. Custom questions are not translated automatically.
 
 ### 6.2 Free tier
 - **FR-020** Free hosts use the curated set; they may **preview** it and **hide up to 5** unsuitable questions,
