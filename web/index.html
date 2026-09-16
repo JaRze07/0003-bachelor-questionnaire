@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0b12">
+<meta name="referrer" content="no-referrer">
+<title>Bachelor Questionnaire</title>
+<link rel="stylesheet" href="styles.css?v=1">
+</head>
+<body>
+<main id="app">
+
+  <!-- SIGN IN -->
+  <section class="screen" id="screen-signin">
+    <header class="topbar"><h1 class="brand" data-t="app.name">Bachelor Questionnaire</h1></header>
+    <div class="stack">
+      <p class="lede" data-t="app.tagline"></p>
+      <div class="spacer"></div>
+      <button class="btn btn-primary btn-huge" id="btn-signin" data-t="home.signIn"></button>
+      <p class="lede small" data-t="home.signInWhy"></p>
+    </div>
+  </section>
+
+  <!-- HOME -->
+  <section class="screen" id="screen-home" hidden>
+    <header class="topbar">
+      <h1 class="brand" data-t="app.name"></h1>
+      <span class="spacer"></span>
+      <button class="btn-back" id="btn-premium" data-t="home.premium"></button>
+    </header>
+    <div class="stack">
+      <div class="notice notice-warn" id="home-notice" hidden></div>
+      <button class="btn btn-primary btn-huge" id="btn-new-game" data-t="home.newGame"></button>
+      <p class="kicker" data-t="home.games"></p>
+      <div class="list" id="games-list"></div>
+      <p class="empty" id="games-empty" data-t="home.noGames" hidden></p>
+      <div class="spacer"></div>
+      <button class="btn btn-quiet" id="btn-signout" data-t="home.signOut"></button>
+      <div class="ad-slot" id="ad-slot" hidden>ad</div>
+    </div>
+  </section>
+
+  <!-- NEW GAME -->
+  <section class="screen" id="screen-new" hidden>
+    <header class="topbar">
+      <button class="btn-back" data-goto="home" data-t="action.back"></button>
+      <h2 class="screen-title" data-t="new.title"></h2>
+    </header>
+    <div class="stack">
+      <label class="field">
+        <span class="field-label" data-t="new.language"></span>
+        <select id="new-language">
+          <option value="en">English</option>
+          <option value="de">Deutsch</option>
+          <option value="es">Español</option>
+          <option value="pt">Português</option>
+          <option value="pl">Polski</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label" data-t="new.name"></span>
+        <input type="text" id="new-title" maxlength="60" autocomplete="off">
+      </label>
+      <label class="toggle" id="new-blank-row" hidden>
+        <span><span class="toggle-title" data-t="new.blank"></span></span>
+        <input type="checkbox" id="new-blank"><span class="switch" aria-hidden="true"></span>
+      </label>
+      <button class="btn btn-primary btn-huge" id="btn-create" data-t="new.create"></button>
+      <p class="form-note" id="new-error"></p>
+    </div>
+  </section>
+
+  <!-- GAME OVERVIEW -->
+  <section class="screen" id="screen-game" hidden>
+    <header class="topbar">
+      <button class="btn-back" data-goto="home" data-t="action.back"></button>
+      <h2 class="screen-title" id="game-title"></h2>
+      <span class="spacer"></span>
+      <span class="badge" id="game-status"></span>
+    </header>
+    <div class="stack">
+      <div class="notice notice-warn" id="game-readonly" hidden>
+        <p data-t="game.readOnly"></p>
+        <button class="btn btn-ghost" id="btn-takeover" data-t="game.takeOver"></button>
+      </div>
+      <div class="notice notice-info" id="game-sync"></div>
+
+      <div class="card">
+        <p class="card-title" data-t="game.partnerLink"></p>
+        <p class="lede small" data-t="game.partnerLinkHelp"></p>
+        <div class="link-box">
+          <span class="link-url" id="partner-url"></span>
+          <div class="row">
+            <button class="btn btn-primary grow" id="btn-copy-partner" data-t="action.copy"></button>
+            <button class="btn btn-quiet" id="btn-regen-partner" data-t="game.regenerate"></button>
+          </div>
+        </div>
+        <div class="progress-bar"><span id="partner-progress"></span></div>
+        <p class="small" id="partner-status"></p>
+      </div>
+
+      <div class="card">
+        <p class="card-title" data-t="game.spectatorLink"></p>
+        <p class="lede small" data-t="game.spectatorLinkHelp"></p>
+        <div class="link-box">
+          <span class="link-url" id="spectator-url"></span>
+          <div class="row">
+            <button class="btn btn-ghost grow" id="btn-copy-spectator" data-t="action.copy"></button>
+            <button class="btn btn-quiet" id="btn-regen-spectator" data-t="game.regenerate"></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="notice" id="readiness-box" hidden></div>
+      <button class="btn btn-ghost" id="btn-readiness" data-t="game.readiness"></button>
+      <button class="btn btn-primary btn-huge" id="btn-play" data-t="game.start"></button>
+
+      <button class="btn btn-ghost" id="btn-questions" data-t="game.questions"></button>
+      <button class="btn btn-ghost" id="btn-settings" data-t="game.settings"></button>
+      <button class="btn btn-ghost" id="btn-fixup" data-t="game.fixup"></button>
+      <button class="btn btn-ghost" id="btn-scoreboard" data-t="game.scoreboard"></button>
+      <button class="btn btn-quiet" id="btn-export" data-t="game.export"></button>
+      <button class="btn btn-quiet" id="btn-delete" data-t="game.delete"></button>
+    </div>
+  </section>
+
+  <!-- PENALTY SETUP -->
+  <section class="screen" id="screen-setup" hidden>
+    <header class="topbar">
+      <button class="btn-back" data-goto="game" data-t="action.back"></button>
+      <span class="round-tag" id="setup-round"></span>
+    </header>
+    <div class="stack">
+      <p class="lede" data-t="round.setPenalty"></p>
+      <div class="choice-row" id="penalty-choices" role="group"></div>
+      <label class="field">
+        <span class="field-label" data-t="round.penaltyWhat"></span>
+        <input type="text" id="penalty-input" maxlength="200" autocomplete="off" enterkeyhint="go">
+      </label>
+      <label class="toggle" id="double-row" hidden>
+        <span><span class="toggle-title" data-t="round.double"></span></span>
+        <input type="checkbox" id="toggle-double"><span class="switch" aria-hidden="true"></span>
+      </label>
+      <button class="btn btn-primary btn-huge" id="btn-reveal" data-t="round.reveal" disabled></button>
+    </div>
+  </section>
+
+  <!-- QUESTION -->
+  <section class="screen" id="screen-question" hidden>
+    <header class="topbar">
+      <span class="round-tag" id="question-round"></span>
+      <span class="penalty-chip" id="question-penalty"></span>
+    </header>
+    <div class="stack">
+      <p class="kicker" id="question-theme"></p>
+      <p class="question-text" id="question-text"></p>
+      <div class="reveal">
+        <button class="btn btn-ghost btn-reveal-answer" id="btn-peek" data-t="round.showAnswer"></button>
+        <div class="bride-answer" id="answer-box" hidden>
+          <span class="kicker" data-t="round.answerLabel"></span>
+          <p id="answer-text"></p>
+          <button class="btn btn-quiet" id="btn-hide-answer" data-t="round.hideAnswer"></button>
+        </div>
+      </div>
+      <div class="verdict-row">
+        <button class="btn btn-correct btn-huge" id="btn-correct" data-t="round.correct"></button>
+        <button class="btn btn-wrong btn-huge" id="btn-wrong" data-t="round.wrong"></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PENALTY REVEAL -->
+  <section class="screen screen-penalty" id="screen-penalty" hidden>
+    <div class="stack stack-center">
+      <p class="penalty-kicker" id="penalty-kicker"></p>
+      <p class="penalty-text" id="penalty-text"></p>
+      <button class="btn btn-primary btn-huge" id="btn-penalty-done" data-t="action.done"></button>
+    </div>
+  </section>
+
+  <!-- STRIKE BACK -->
+  <section class="screen" id="screen-strike" hidden>
+    <div class="stack stack-center">
+      <p class="penalty-kicker" data-t="round.strikeBack"></p>
+      <p class="lede" data-t="round.strikeBackWho"></p>
+      <label class="field">
+        <input type="text" id="strike-guest" maxlength="40" autocomplete="off" enterkeyhint="done">
+      </label>
+      <div class="list" id="strike-recent"></div>
+      <button class="btn btn-primary btn-huge" id="btn-strike-ok" data-t="action.confirm"></button>
+      <button class="btn btn-quiet" id="btn-strike-skip" data-t="action.cancel"></button>
+    </div>
+  </section>
+
+  <!-- QUESTIONS EDITOR -->
+  <section class="screen" id="screen-questions" hidden>
+    <header class="topbar">
+      <button class="btn-back" data-goto="game" data-t="action.back"></button>
+      <h2 class="screen-title" data-t="questions.title"></h2>
+    </header>
+    <div class="stack">
+      <p class="lede small" id="questions-note"></p>
+      <div class="card" id="add-question-box" hidden>
+        <p class="card-title" data-t="questions.add"></p>
+        <label class="field">
+          <span class="field-label" data-t="questions.theme"></span>
+          <input type="text" id="add-theme" maxlength="40" autocomplete="off">
+        </label>
+        <label class="field">
+          <span class="field-label" data-t="questions.text"></span>
+          <textarea id="add-text" maxlength="300" rows="2"></textarea>
+        </label>
+        <button class="btn btn-primary" id="btn-add-question" data-t="questions.add"></button>
+      </div>
+      <div class="list" id="questions-list"></div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="screen" id="screen-settings" hidden>
+    <header class="topbar">
+      <button class="btn-back" data-goto="game" data-t="action.back"></button>
+      <h2 class="screen-title" data-t="game.settings"></h2>
+    </header>
+    <div class="stack">
+      <p class="lede small" id="settings-note"></p>
+      <div class="seg-wrap">
+        <span class="field-label" data-t="settings.penaltyScheme"></span>
+        <div class="seg" id="scheme-row"></div>
+      </div>
+      <div class="list" id="custom-penalties" hidden></div>
+      <button class="btn btn-quiet" id="btn-add-penalty" data-t="settings.customAdd" hidden></button>
+      <span class="field-label" data-t="settings.rules"></span>
+      <label class="toggle">
+        <span><span class="toggle-title" data-t="round.strikeBack"></span><span class="toggle-sub" data-t="settings.strikeBack"></span></span>
+        <input type="checkbox" id="rule-strike"><span class="switch" aria-hidden="true"></span>
+      </label>
+      <label class="toggle">
+        <span><span class="toggle-title" data-t="round.double"></span><span class="toggle-sub" data-t="settings.doubleOrNothing"></span></span>
+        <input type="checkbox" id="rule-double"><span class="switch" aria-hidden="true"></span>
+      </label>
+      <label class="toggle">
+        <span><span class="toggle-title" data-t="settings.randomOrder"></span></span>
+        <input type="checkbox" id="rule-random"><span class="switch" aria-hidden="true"></span>
+      </label>
+    </div>
+  </section>
+
+  <!-- FIX RESULTS -->
+  <section class="screen" id="screen-fixup" hidden>
+    <header class="topbar">
+      <button class="btn-back" data-goto="game" data-t="action.back"></button>
+      <h2 class="screen-title" data-t="game.fixup"></h2>
+    </header>
+    <div class="stack"><div class="list" id="fixup-list"></div></div>
+  </section>
+
+  <!-- SCOREBOARD -->
+  <section class="screen" id="screen-scoreboard" hidden>
+    <header class="topbar">
+      <button class="btn-back" data-goto="game" data-t="action.back"></button>
+      <h2 class="screen-title" data-t="game.scoreboard"></h2>
+    </header>
+    <div class="stack">
+      <div class="tally">
+        <div class="tally-cell tally-correct"><span class="tally-num" id="tally-correct">0</span><span class="tally-label" data-t="score.correct"></span></div>
+        <div class="tally-cell tally-wrong"><span class="tally-num" id="tally-wrong">0</span><span class="tally-label" data-t="score.wrong"></span></div>
+      </div>
+      <div class="filter-row" role="group">
+        <button class="filter is-active" data-filter="all" data-t="score.filterAll"></button>
+        <button class="filter" data-filter="correct" data-t="score.correct"></button>
+        <button class="filter" data-filter="wrong" data-t="score.wrong"></button>
+      </div>
+      <div class="table-wrap">
+        <table class="results">
+          <thead><tr><th>#</th><th data-t="score.question"></th><th data-t="score.answer"></th><th data-t="score.penalty"></th><th data-t="score.result"></th></tr></thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+      <button class="btn btn-ghost" id="btn-share" data-t="score.share"></button>
+      <button class="btn btn-ghost" id="btn-download" data-t="score.download"></button>
+      <button class="btn btn-quiet" id="btn-finish" data-t="score.finish"></button>
+      <div class="ad-slot" id="ad-slot-score" hidden>ad</div>
+    </div>
+  </section>
+
+  <!-- PREMIUM -->
+  <section class="screen" id="screen-premium" hidden>
+    <header class="topbar">
+      <button class="btn-back" data-goto="home" data-t="action.back"></button>
+      <h2 class="screen-title" data-t="premium.title"></h2>
+    </header>
+    <div class="stack">
+      <p class="lede" data-t="premium.pitch"></p>
+      <div class="notice notice-info" id="premium-state"></div>
+      <button class="btn btn-primary btn-huge" id="btn-buy"></button>
+      <button class="btn btn-ghost" id="btn-restore" data-t="premium.restore"></button>
+      <p class="form-note" id="premium-error"></p>
+    </div>
+  </section>
+
+</main>
+<div id="modal-root"></div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
