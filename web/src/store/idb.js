@@ -32,6 +32,13 @@ export function openDb(name = DB_NAME) {
 
 export function resetDbHandle() { dbPromise = null; }
 
+/** Close the open connection (tests, and before a schema upgrade in another tab). */
+export async function closeDb() {
+  if (!dbPromise) return;
+  try { (await dbPromise).close(); } catch { /* already closed */ }
+  dbPromise = null;
+}
+
 const wrap = (request) => new Promise((resolve, reject) => {
   request.onsuccess = () => resolve(request.result);
   request.onerror = () => reject(request.error);
