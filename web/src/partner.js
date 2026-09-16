@@ -200,6 +200,6 @@ on('btn-report', 'click', async () => {
   if (!reason) return;
   try { await api.post('/p/report', { reason: reason.slice(0, 500) }); toast(t('partner.saved')); } catch { toast(t('error.generic')); }
 });
-window.addEventListener('beforeunload', () => { const q = current(); if (q) navigator.sendBeacon?.(''); });
+// A pending save is flushed on blur and on every navigation button, so there is nothing to do on unload.
 
 boot();
