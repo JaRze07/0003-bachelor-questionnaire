@@ -63,7 +63,7 @@ export function gameRoutes(deps: AppDeps) {
     if (games.filter(countsTowardLimit).length >= LIMITS.activeGames) throw forbidden('active_game_limit');
     const now = nowIso();
     const game: Game = {
-      id: newId(), hostUid: user.uid, status: 'draft', language: body.language, title: body.title,
+      id: newId(), hostUid: user.uid, status: 'awaiting_partner', language: body.language, title: body.title,
       settings: defaultSettings(), tier: tierOf(user), hiddenQuestionIds: [],
       tokens: { partner: { hash: '', version: 0 }, spectator: { hash: '', version: 0 } },
       epoch: 1, revision: 0,
@@ -113,7 +113,8 @@ export function gameRoutes(deps: AppDeps) {
       game.hiddenQuestionIds = body.hiddenQuestionIds.filter((id) => ids.has(id));
     }
     if (body.language && body.language !== game.language) {
-      if (game.status !== 'draft' || game.partnerOpenedAt || full.answers.length) throw conflict('language_locked', 'Language can change only in draft, before the partner opened the link');
+      const started = game.status === 'in_progress' || game.status === 'finished';
+      if (started || game.partnerOpenedAt || full.answers.length) throw conflict('language_locked', 'Language can change only before the partner opens the link and before any answer exists');
       const now = nowIso();
       for (const q of full.questions.filter((q) => q.source === 'curated')) await repo.questions.delete(game.id, q.id);
       const fresh = await curatedQuestions(deps, body.language, now);

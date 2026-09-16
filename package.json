@@ -23,7 +23,10 @@
     "@capacitor/cli": "8.5.2",
     "fake-indexeddb": "6.2.5",
     "jsdom": "30.0.1",
+    "vite": "8.3.0",
     "vitest": "5.0.0"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  }
 }

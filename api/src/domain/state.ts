@@ -37,6 +37,6 @@ export const partnerMayWrite = (g: Game) => g.status === 'awaiting_partner' || g
  * Recompute awaiting_partner/ready from answer completeness. Only applies while the game has not started.
  */
 export function completenessStatus(g: Game, playableQuestions: number, answered: number): GameStatus {
-  if (g.status !== 'awaiting_partner' && g.status !== 'ready') return g.status;
+  if (g.status !== 'draft' && g.status !== 'awaiting_partner' && g.status !== 'ready') return g.status;
   return playableQuestions > 0 && answered >= playableQuestions ? 'ready' : 'awaiting_partner';
 }

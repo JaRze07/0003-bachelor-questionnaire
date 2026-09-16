@@ -67,7 +67,8 @@ export function hostAuth(repo: Repo): MiddlewareHandler<{ Variables: Vars }> {
 /** Loads the game from :id and checks ownership. 404 for other people's games (no existence leak). */
 export function ownedGame(repo: Repo): MiddlewareHandler<{ Variables: Vars }> {
   return async (c, next) => {
-    const game = await repo.games.get(c.req.param('id'));
+    const id = c.req.param('id');
+    const game = id ? await repo.games.get(id) : null;
     if (!game || game.hostUid !== c.get('uid')) throw notFound('game_not_found');
     c.set('game', game);
     await next();
