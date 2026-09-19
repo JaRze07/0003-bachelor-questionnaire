@@ -3,14 +3,14 @@ import { createMemoryRepo } from './memory.js';
 
 let cached: Repo | null = null;
 
-/** REPO=memory → in-memory; otherwise Firestore (ADC credentials on Cloud Run, emulator via FIRESTORE_EMULATOR_HOST). */
+/** REPO=memory for tests and quick local runs; otherwise SQLite at DB_PATH (default ./data/bachelor.db). */
 export async function getRepo(): Promise<Repo> {
   if (cached) return cached;
-  if ((process.env.REPO ?? 'firestore') === 'memory') {
+  if ((process.env.REPO ?? 'sqlite') === 'memory') {
     cached = createMemoryRepo();
   } else {
-    const { createFirestoreRepo } = await import('./firestore.js');
-    cached = createFirestoreRepo();
+    const { createSqliteRepo } = await import('./sqlite.js');
+    cached = createSqliteRepo();
   }
   return cached;
 }

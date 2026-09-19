@@ -161,7 +161,21 @@ export interface Projection {
 
 export interface Snapshot { id: string; createdAt: string; data: unknown }
 
+/** Our own sign-in session: the id is the sha256 of the bearer token, the token itself is never stored. */
+export interface Session { id: string; uid: string; provider: 'google' | 'apple' | 'dev'; createdAt: string; expiresAt: string }
+
 export interface Repo {
+  /**
+   * Run `fn` as one unit: everything it writes is committed together or not at all, and no other
+   * writer runs in between. Nested calls join the outer transaction.
+   */
+  tx<T>(fn: () => Promise<T>): Promise<T>;
+  sessions: {
+    get(id: string): Promise<Session | null>;
+    set(s: Session): Promise<void>;
+    delete(id: string): Promise<void>;
+    deleteExpired(nowIso: string): Promise<number>;
+  };
   users: {
     get(uid: string): Promise<User | null>;
     set(user: User): Promise<void>;

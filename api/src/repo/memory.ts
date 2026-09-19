@@ -1,4 +1,4 @@
-import type { Answer, Game, GameEvent, Projection, Purchase, Question, Repo, Round, Snapshot, TokenDoc, User } from './types.js';
+import type { Answer, Game, GameEvent, Projection, Purchase, Question, Repo, Round, Session, Snapshot, TokenDoc, User } from './types.js';
 
 const clone = <T>(v: T): T => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
 
@@ -15,6 +15,9 @@ export function createMemoryRepo(): Repo & { dump(): unknown } {
   const tokens = new Map<string, TokenDoc>();
   const projections = new Map<string, Projection>();
   const snapshots = new Map<string, Snapshot[]>();
+  const sessions = new Map<string, Session>();
+  let queue: Promise<unknown> = Promise.resolve();
+  let depth = 0;
 
   const bucket = <T>(m: Map<string, Map<string, T>>, gameId: string) => {
     let b = m.get(gameId);
@@ -23,6 +26,23 @@ export function createMemoryRepo(): Repo & { dump(): unknown } {
   };
 
   return {
+    /** Serialised like the SQLite repository, but without rollback: this store is for tests and local runs. */
+    async tx(fn) {
+      if (depth > 0) return fn();
+      const run = queue.then(async () => { depth++; try { return await fn(); } finally { depth--; } });
+      queue = run.catch(() => undefined);
+      return run;
+    },
+    sessions: {
+      async get(id) { return clone(sessions.get(id) ?? null); },
+      async set(s) { sessions.set(s.id, clone(s)); },
+      async delete(id) { sessions.delete(id); },
+      async deleteExpired(now) {
+        let n = 0;
+        for (const [id, s] of sessions) if (s.expiresAt < now) { sessions.delete(id); n++; }
+        return n;
+      },
+    },
     users: {
       async get(uid) { return clone(users.get(uid) ?? null); },
       async set(u) { users.set(u.uid, clone(u)); },
