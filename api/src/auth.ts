@@ -1,33 +1,17 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import type { Game, Repo, TokenRole, User } from './repo/types.js';
-import { ApiError, gone, notFound, tooMany, unauthorized } from './errors.js';
+import { gone, notFound, tooMany, unauthorized } from './errors.js';
 import { hashToken, nowIso } from './domain/ids.js';
 
 export type Vars = { uid: string; user: User; game: Game; tokenRole: TokenRole; requestId: string };
 
-/* ---------- Firebase ID tokens ---------- */
+/* ---------- Sessions ---------- */
+// The client signs in with Google once (routes/auth.ts) and gets our own bearer token. Only its sha256 is
+// stored, so a copy of the database does not contain a usable credential.
 
-type Verifier = (idToken: string) => Promise<{ uid: string }>;
-let verifier: Verifier | null = null;
+export const SESSION_DAYS = 30;
 
-async function firebaseVerifier(): Promise<Verifier> {
-  if (verifier) return verifier;
-  const admin = await import('firebase-admin/app');
-  const { getAuth } = await import('firebase-admin/auth');
-  const app = admin.getApps()[0] ?? admin.initializeApp();
-  const auth = getAuth(app);
-  verifier = async (idToken) => {
-    // checkRevoked: a signed-out or disabled host must lose access at once, not at token expiry.
-    const decoded = await auth.verifyIdToken(idToken, true);
-    return { uid: decoded.uid };
-  };
-  return verifier;
-}
-
-/** Test hook: replace the verifier. */
-export function setVerifier(v: Verifier | null) { verifier = v; }
-
-export async function verifyBearer(header: string | undefined): Promise<string> {
+export async function verifyBearer(repo: Repo, header: string | undefined): Promise<string> {
   const m = /^Bearer\s+(.+)$/i.exec(header ?? '');
   if (!m) throw unauthorized();
   const token = m[1].trim();
@@ -36,19 +20,20 @@ export async function verifyBearer(header: string | undefined): Promise<string> 
     if (!/^[A-Za-z0-9_-]{1,64}$/.test(uid)) throw unauthorized('bad_dev_uid');
     return uid;
   }
-  try {
-    const v = await firebaseVerifier();
-    return (await v(token)).uid;
-  } catch (e) {
-    if (e instanceof ApiError) throw e;
-    throw unauthorized('invalid_id_token');
+  if (token.length < 32 || token.length > 128) throw unauthorized('invalid_session');
+  const session = await repo.sessions.get(hashToken(token));
+  if (!session) throw unauthorized('invalid_session');
+  if (session.expiresAt < nowIso()) {
+    await repo.sessions.delete(session.id);
+    throw unauthorized('session_expired');
   }
+  return session.uid;
 }
 
-/** Host middleware: verifies the ID token and upserts users/{uid}. */
+/** Host middleware: resolves the session and upserts users/{uid}. */
 export function hostAuth(repo: Repo): MiddlewareHandler<{ Variables: Vars }> {
   return async (c, next) => {
-    const uid = await verifyBearer(c.req.header('authorization'));
+    const uid = await verifyBearer(repo, c.req.header('authorization'));
     rateLimit(`host:${uid}`, 300, 60);
     let user = await repo.users.get(uid);
     const now = nowIso();

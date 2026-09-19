@@ -29,6 +29,10 @@ export function harness(): Harness {
   const app = createApp({
     repo,
     play,
+    google: async (idToken: string) => {
+      if (!idToken.startsWith('google-ok-')) { const { unauthorized } = await import('../src/errors.js'); throw unauthorized('invalid_google_token'); }
+      return { sub: idToken.slice('google-ok-'.length).split('.')[0], name: 'Test Host' };
+    },
     curated: async (lang) => (lang === 'en' || lang === 'pl' ? CURATED : null),
   });
   const call = async (path: string, init: RequestInit & { json?: unknown } = {}, headers: Record<string, string> = {}) => {

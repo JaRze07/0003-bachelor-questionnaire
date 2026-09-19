@@ -14,8 +14,10 @@ import { partnerRoutes } from './routes/partner.js';
 import { spectatorRoutes } from './routes/spectator.js';
 import { internalRoutes } from './routes/internal.js';
 import type { PlayVerifier } from './domain/play.js';
+import type { GoogleVerifier } from './domain/google.js';
+import { authRoutes } from './routes/auth.js';
 
-export interface AppDeps { repo: Repo; play: PlayVerifier; curated: (lang: string) => Promise<CuratedQuestion[] | null> }
+export interface AppDeps { repo: Repo; play: PlayVerifier; google: GoogleVerifier; curated: (lang: string) => Promise<CuratedQuestion[] | null> }
 export interface CuratedQuestion { id: string; text: string; theme?: string }
 
 export function createApp(deps: AppDeps) {
@@ -62,6 +64,7 @@ export function createApp(deps: AppDeps) {
   });
 
   const v1 = new Hono<{ Variables: Vars }>();
+  v1.route('/auth', authRoutes(deps));
   v1.route('/me', meRoutes(deps));
   v1.route('/games', gameRoutes(deps));
   v1.route('/games', questionRoutes(deps));
