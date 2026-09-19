@@ -84,7 +84,10 @@ export function applyEvent(full: FullGame, e: GameEvent): boolean {
       return true;
     }
     case 'round.reveal':
-      return true; // informational; the freeze happened at round.start on the device
+      // From here on the guest page may show the partner's answer for this round (spec 002 FR-102).
+      if (!round) return false;
+      if (!round.revealedAt) round.revealedAt = e.receivedAt;
+      return true;
     case 'round.double':
       if (!round || !game.settings.rules.doubleOrNothing) return false;
       round.doubled = true;

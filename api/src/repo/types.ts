@@ -126,6 +126,8 @@ export interface Round {
   doubled: boolean;
   strikeBack: { guest: string }[];
   startedAt: string;
+  /** When the organiser showed the partner's answer on their own screen; guests see it from then on. */
+  revealedAt?: string;
   markedAt?: string;
   syncedAt: string;
 }
@@ -147,13 +149,23 @@ export interface GameEvent {
 
 export interface TokenDoc { hash: string; gameId: string; role: TokenRole; version: number; createdAt: string }
 
-export interface ProjectionRound { n: number; question: string; result: 'correct' | 'wrong'; penalty: { type: PenaltyType; label: string }; doubled: boolean }
+export interface ProjectionPenalty { type: PenaltyType; label: string; description: string }
+export interface ProjectionRound {
+  n: number; question: string; theme?: string; answer: string; result: 'correct' | 'wrong';
+  penalty: ProjectionPenalty; doubled: boolean; takenBy: string[];
+}
+/** The round on the table right now. `answer` exists only once the organiser has revealed it. */
+export interface ProjectionLive {
+  n: number; question: string; theme?: string; penalty: ProjectionPenalty; doubled: boolean;
+  answerRevealed: boolean; answer?: string;
+}
 export interface Projection {
   gameId: string;
   language: Language;
   title?: string;
   status: GameStatus;
   score: { correct: number; wrong: number; played: number; total: number };
+  live: ProjectionLive | null;
   rounds: ProjectionRound[];
   revision: number;
   updatedAt: string;

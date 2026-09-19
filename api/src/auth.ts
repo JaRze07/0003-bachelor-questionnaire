@@ -71,8 +71,9 @@ export function gameTokenAuth(repo: Repo, role: TokenRole): MiddlewareHandler<{ 
     const token = c.req.header('x-game-token');
     if (!token || token.length < 20 || token.length > 128) throw notFound('link_unavailable');
     const hash = hashToken(token);
-    // A whole table of spectators shares one link, so the per-token budget has to fit a room, not a phone.
-    rateLimit(`${role}:${hash}`, role === 'partner' ? 120 : 600, 60);
+    // A whole room shares one guest link and polls every 2.5 s, so the per-link budget has to fit a party
+    // (100 guests), while the caller bucket above keeps a single device honest.
+    rateLimit(`${role}:${hash}`, role === 'partner' ? 120 : 3000, 60);
     const doc = await repo.tokens.get(hash);
     if (!doc || doc.role !== role) throw notFound('link_unavailable');
     const game = await repo.games.get(doc.gameId);
