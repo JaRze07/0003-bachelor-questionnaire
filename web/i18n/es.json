@@ -161,5 +161,15 @@
   "time.justNow": "ahora mismo",
   "time.secondsAgo": "hace {n} s",
   "time.minutesAgo": "hace {n} min",
-  "time.hoursAgo": "hace {n} h"
+  "time.hoursAgo": "hace {n} h",
+  "spectator.now": "En juego ahora",
+  "spectator.answerHidden": "La respuesta sigue oculta",
+  "spectator.answer": "Su pareja dijo",
+  "spectator.history": "Jugado hasta ahora",
+  "spectator.finished": "El juego ha terminado",
+  "spectator.takenBy": "Le toca a {names}",
+  "partner.disclosure": "Tus respuestas se leerán en voz alta y se mostrarán a los invitados de la fiesta.",
+  "premium.webNotice": "Premium se compra en la app de Android. Va con tu cuenta, así que también funciona aquí.",
+  "home.signInGoogle": "Iniciar sesión con Google",
+  "home.webHint": "Puedes dirigir todo el juego desde este navegador."
 }

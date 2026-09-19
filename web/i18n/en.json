@@ -161,5 +161,15 @@
   "time.justNow": "just now",
   "time.secondsAgo": "{n}s ago",
   "time.minutesAgo": "{n}m ago",
-  "time.hoursAgo": "{n}h ago"
+  "time.hoursAgo": "{n}h ago",
+  "spectator.now": "On the table now",
+  "spectator.answerHidden": "The answer is still hidden",
+  "spectator.answer": "The partner said",
+  "spectator.history": "Played so far",
+  "spectator.finished": "The game is over",
+  "spectator.takenBy": "{names} takes it",
+  "partner.disclosure": "Your answers will be read out and shown to the party guests.",
+  "premium.webNotice": "Premium is bought in the Android app. It follows your account, so it works here too.",
+  "home.signInGoogle": "Sign in with Google",
+  "home.webHint": "You can run the whole game from this browser."
 }

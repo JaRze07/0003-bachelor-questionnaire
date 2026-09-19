@@ -11,16 +11,17 @@ import { downloadJson, share } from '../native/device.js';
 
 let filter = 'all';
 let chosenPenalty = null;
-let busy = false;
+const busy = new Set();
 
 /**
  * One journal write per user action. The screen may only move after the transaction commits, and the
  * snapshot it produced becomes the in-memory copy (nothing else is a correct view of the game).
- * `busy` makes a double tap a no-op instead of a second round or a second verdict.
+ * The lock is per kind of action: a double tap on the same button is a no-op, while a different action
+ * (marking a round right after revealing the answer) is never swallowed. IndexedDB orders the writes.
  */
-async function commit(entries, buttons = []) {
-  if (busy) return null;
-  busy = true;
+async function commit(entries, buttons = [], kind = entries[0]?.type ?? 'action') {
+  if (busy.has(kind)) return null;
+  busy.add(kind);
   for (const id of buttons) { const node = $(id); if (node) node.disabled = true; }
   try {
     const { snapshot } = await appendMany(snap().gameId, entries);
@@ -31,9 +32,29 @@ async function commit(entries, buttons = []) {
     toast(err.message === 'read_only' ? t('game.readOnly') : t('error.generic'));
     return null;
   } finally {
-    busy = false;
+    busy.delete(kind);
     for (const id of buttons) { const node = $(id); if (node) node.disabled = false; }
   }
+}
+
+/**
+ * The organiser showed the answer on their own screen: tell the guests' page. The screen never waits for this;
+ * if it cannot be recorded the guests simply see the answer when the round is marked.
+ */
+async function recordReveal() {
+  const d = state.draft;
+  if (!d || d.revealRecorded) return;
+  d.revealRecorded = true;
+  const updated = await commit([{
+    type: 'round.reveal',
+    payload: { roundId: d.roundId },
+    mutate: (snapshot) => {
+      const round = snapshot.rounds.find((r) => r.id === d.roundId);
+      if (round && !round.revealedAt) round.revealedAt = new Date().toISOString();
+    },
+  }], [], 'reveal');
+  if (updated) sync().catch(() => {});
+  else d.revealRecorded = false;
 }
 
 const snap = () => state.snapshot;
@@ -362,7 +383,11 @@ export function wireRound() {
   on('penalty-input', 'input', refreshReveal);
   on('penalty-input', 'keydown', (e) => { if (e.key === 'Enter' && !$('btn-reveal').disabled) reveal(); });
   on('btn-reveal', 'click', reveal);
-  on('btn-peek', 'click', () => { $('answer-box').hidden = false; $('btn-peek').hidden = true; });
+  on('btn-peek', 'click', () => {
+    $('answer-box').hidden = false;
+    $('btn-peek').hidden = true;
+    recordReveal().catch(() => {});
+  });
   on('btn-hide-answer', 'click', () => { $('answer-box').hidden = true; $('btn-peek').hidden = false; });
   on('btn-correct', 'click', () => judge('correct'));
   on('btn-wrong', 'click', () => judge('wrong'));

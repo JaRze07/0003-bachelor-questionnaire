@@ -126,6 +126,8 @@ export interface Round {
   doubled: boolean;
   strikeBack: { guest: string }[];
   startedAt: string;
+  /** When the organiser showed the partner's answer on their own screen; guests see it from then on. */
+  revealedAt?: string;
   markedAt?: string;
   syncedAt: string;
 }
@@ -147,13 +149,23 @@ export interface GameEvent {
 
 export interface TokenDoc { hash: string; gameId: string; role: TokenRole; version: number; createdAt: string }
 
-export interface ProjectionRound { n: number; question: string; result: 'correct' | 'wrong'; penalty: { type: PenaltyType; label: string }; doubled: boolean }
+export interface ProjectionPenalty { type: PenaltyType; label: string; description: string }
+export interface ProjectionRound {
+  n: number; question: string; theme?: string; answer: string; result: 'correct' | 'wrong';
+  penalty: ProjectionPenalty; doubled: boolean; takenBy: string[];
+}
+/** The round on the table right now. `answer` exists only once the organiser has revealed it. */
+export interface ProjectionLive {
+  n: number; question: string; theme?: string; penalty: ProjectionPenalty; doubled: boolean;
+  answerRevealed: boolean; answer?: string;
+}
 export interface Projection {
   gameId: string;
   language: Language;
   title?: string;
   status: GameStatus;
   score: { correct: number; wrong: number; played: number; total: number };
+  live: ProjectionLive | null;
   rounds: ProjectionRound[];
   revision: number;
   updatedAt: string;
@@ -161,7 +173,21 @@ export interface Projection {
 
 export interface Snapshot { id: string; createdAt: string; data: unknown }
 
+/** Our own sign-in session: the id is the sha256 of the bearer token, the token itself is never stored. */
+export interface Session { id: string; uid: string; provider: 'google' | 'apple' | 'dev'; createdAt: string; expiresAt: string }
+
 export interface Repo {
+  /**
+   * Run `fn` as one unit: everything it writes is committed together or not at all, and no other
+   * writer runs in between. Nested calls join the outer transaction.
+   */
+  tx<T>(fn: () => Promise<T>): Promise<T>;
+  sessions: {
+    get(id: string): Promise<Session | null>;
+    set(s: Session): Promise<void>;
+    delete(id: string): Promise<void>;
+    deleteExpired(nowIso: string): Promise<number>;
+  };
   users: {
     get(uid: string): Promise<User | null>;
     set(user: User): Promise<void>;

@@ -14,8 +14,10 @@ import { partnerRoutes } from './routes/partner.js';
 import { spectatorRoutes } from './routes/spectator.js';
 import { internalRoutes } from './routes/internal.js';
 import type { PlayVerifier } from './domain/play.js';
+import type { GoogleVerifier } from './domain/google.js';
+import { authRoutes } from './routes/auth.js';
 
-export interface AppDeps { repo: Repo; play: PlayVerifier; curated: (lang: string) => Promise<CuratedQuestion[] | null> }
+export interface AppDeps { repo: Repo; play: PlayVerifier; google: GoogleVerifier; curated: (lang: string) => Promise<CuratedQuestion[] | null> }
 export interface CuratedQuestion { id: string; text: string; theme?: string }
 
 export function createApp(deps: AppDeps) {
@@ -40,7 +42,29 @@ export function createApp(deps: AppDeps) {
 
   app.get('/healthz', (c) => c.json({ ok: true }));
 
+  /**
+   * Every mutating request is one transaction: either all of its writes land or none. Hono turns a thrown
+   * error into a response inside `next()`, so the failure is read from `c.error` and converted into a rollback.
+   * Routes that call the store's network (purchases, store notifications) manage their own short transactions,
+   * because nothing should hold the writer while it waits for Google.
+   */
+  class Rollback extends Error {}
+  app.use('/v1/*', async (c, next) => {
+    const path = c.req.path;
+    const reads = c.req.method === 'GET' || c.req.method === 'OPTIONS' || c.req.method === 'HEAD';
+    if (reads || path.includes('/me/purchases') || path.includes('/internal/') || path.startsWith('/v1/auth/')) return next();
+    try {
+      await deps.repo.tx(async () => {
+        await next();
+        if (c.error) throw new Rollback();
+      });
+    } catch (err) {
+      if (!(err instanceof Rollback)) throw err;
+    }
+  });
+
   const v1 = new Hono<{ Variables: Vars }>();
+  v1.route('/auth', authRoutes(deps));
   v1.route('/me', meRoutes(deps));
   v1.route('/games', gameRoutes(deps));
   v1.route('/games', questionRoutes(deps));

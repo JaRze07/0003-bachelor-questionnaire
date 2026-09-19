@@ -1,5 +1,6 @@
 import { createApp } from '../src/app.js';
 import { createMemoryRepo } from '../src/repo/memory.js';
+import { createSqliteRepo } from '../src/repo/sqlite.js';
 import { fakePlayVerifier } from '../src/domain/play.js';
 import { resetRateLimits } from '../src/auth.js';
 import type { Repo } from '../src/repo/types.js';
@@ -22,11 +23,16 @@ export interface Harness {
 
 export function harness(): Harness {
   resetRateLimits();
-  const repo = createMemoryRepo();
+  // The whole suite runs against both stores: TEST_REPO=memory for speed, sqlite (default) for the real thing.
+  const repo: Repo = process.env.TEST_REPO === 'memory' ? createMemoryRepo() : createSqliteRepo(':memory:');
   const play = fakePlayVerifier();
   const app = createApp({
     repo,
     play,
+    google: async (idToken: string) => {
+      if (!idToken.startsWith('google-ok-')) { const { unauthorized } = await import('../src/errors.js'); throw unauthorized('invalid_google_token'); }
+      return { sub: idToken.slice('google-ok-'.length).split('.')[0], name: 'Test Host' };
+    },
     curated: async (lang) => (lang === 'en' || lang === 'pl' ? CURATED : null),
   });
   const call = async (path: string, init: RequestInit & { json?: unknown } = {}, headers: Record<string, string> = {}) => {

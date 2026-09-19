@@ -1,0 +1,47 @@
+# Bachelor Questionnaire on the JR07 box (Hetzner CX33). One container: API + pages, SQLite file on disk.
+#
+# The project name is set explicitly. The dashboard's compose file also lives in a directory called `deploy`, so
+# without it both would be project "deploy" and this one would treat the dashboard, terminal and Caddy as its own
+# orphans.
+#
+# Caddy (in the dashboard's project) terminates TLS and proxies to `bachelor-api:8080`, so this service joins that
+# project's network instead of publishing a port.
+#
+#   /srv/jr07/apps/0003            checkout of this repo
+#   /srv/jr07/data/bachelor        bachelor.db (+ -wal, -shm) and backups/
+#   /srv/jr07/bachelor.env         this app's settings only (600). The dashboard's secrets are never mounted here.
+#
+# Always run through deploy/install.sh or with:  docker compose --env-file /srv/jr07/bachelor.env ...
+name: jr07-bachelor
+
+services:
+  bachelor-api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: jr07-bachelor-api
+    container_name: bachelor-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DEV_AUTH: "0"
+      PLAY_FAKE: "0"                                   # never fake purchases on the box
+      WEB_BASE: ${BQ_PUBLIC_URL:?set BQ_PUBLIC_URL in /srv/jr07/bachelor.env}
+      CORS_ORIGINS: ${BQ_PUBLIC_URL},capacitor://localhost,https://localhost
+      GOOGLE_WEB_CLIENT_ID: ${BQ_GOOGLE_WEB_CLIENT_ID:-}
+      GOOGLE_CLIENT_IDS: ${BQ_GOOGLE_CLIENT_IDS:-}
+      AD_UNIT_BANNER: ${BQ_AD_UNIT_BANNER:-}
+      AD_UNIT_INTERSTITIAL: ${BQ_AD_UNIT_INTERSTITIAL:-}
+      PLAY_PACKAGE_NAME: com.jr07.bachelorquestionnaire
+      GOOGLE_APPLICATION_CREDENTIALS: /secrets/play-service-account.json
+    volumes:
+      - /srv/jr07/data/bachelor:/data
+      - /srv/jr07/secrets/bachelor:/secrets:ro
+    expose: ["8080"]
+    mem_limit: 512m
+    networks: [jr07]
+
+networks:
+  jr07:
+    external: true
+    name: ${JR07_NETWORK:-deploy_default}

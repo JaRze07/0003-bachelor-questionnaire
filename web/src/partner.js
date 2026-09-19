@@ -54,6 +54,7 @@ function applyLabels(newCount) {
   document.title = t('partner.title');
   $('title').textContent = t('partner.title');
   $('intro').textContent = t('partner.intro');
+  $('disclosure').textContent = t('partner.disclosure');
   $('btn-prev').textContent = t('partner.prev');
   $('btn-next').textContent = t('partner.next');
   $('btn-done').textContent = t('partner.done');

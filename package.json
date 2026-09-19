@@ -14,12 +14,12 @@
   },
   "dependencies": {
     "@capacitor-community/admob": "8.1.0",
-    "@capacitor-firebase/authentication": "8.5.1",
     "@capacitor/android": "8.5.2",
     "@capacitor/app": "8.1.1",
     "@capacitor/core": "8.5.2",
     "@capacitor/preferences": "8.0.1",
     "@capacitor/share": "8.0.1",
+    "@capgo/capacitor-social-login": "8.5.10",
     "@capgo/native-purchases": "8.7.0"
   },
   "devDependencies": {

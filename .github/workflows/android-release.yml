@@ -24,7 +24,8 @@ jobs:
       - run: npm test
       - name: Write the API base into the bundle
         run: |
-          printf 'globalThis.API_BASE=%s;\n' "\"${{ vars.API_BASE || 'https://bachelor-api.example' }}\"" > web/config.js
+          printf 'globalThis.API_BASE=%s;\n' "\"${{ vars.API_BASE || 'https://bq.91-98-25-205.sslip.io' }}\"" > web/config.js
+          printf 'globalThis.GOOGLE_CLIENT_ID=%s;\n' "\"${{ vars.GOOGLE_WEB_CLIENT_ID }}\"" >> web/config.js
           printf 'globalThis.AD_UNIT_BANNER=%s;\n' "\"${{ vars.AD_UNIT_BANNER }}\"" >> web/config.js
           printf 'globalThis.AD_UNIT_INTERSTITIAL=%s;\n' "\"${{ vars.AD_UNIT_INTERSTITIAL }}\"" >> web/config.js
       - run: npx cap sync android

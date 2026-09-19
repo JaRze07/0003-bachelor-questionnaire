@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#0b0b12">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
-<title>Live score</title>
-<link rel="stylesheet" href="styles.css?v=1">
+<title>Live</title>
+<link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
 <main class="page">
@@ -18,12 +18,35 @@
       <div class="tally-cell tally-correct"><span class="tally-num" id="correct">0</span><span class="tally-label" id="correct-label"></span></div>
       <div class="tally-cell tally-wrong"><span class="tally-num" id="wrong">0</span><span class="tally-label" id="wrong-label"></span></div>
     </div>
+
+    <div class="card live-card" id="live" hidden>
+      <div class="row-between">
+        <span class="kicker" id="live-kicker"></span>
+        <span class="round-tag" id="live-round"></span>
+      </div>
+      <p class="kicker" id="live-theme"></p>
+      <p class="question-text" id="live-question"></p>
+      <div class="live-penalty">
+        <span class="pill pill-type" id="live-penalty-label"></span>
+        <span id="live-penalty-text"></span>
+        <span class="badge badge-live" id="live-doubled" hidden>×2</span>
+      </div>
+      <div class="live-answer" id="live-answer-box">
+        <span class="kicker" id="live-answer-label"></span>
+        <p id="live-answer"></p>
+      </div>
+    </div>
+
+    <p class="notice notice-ok" id="finished" hidden></p>
     <p class="lede small" id="waiting" hidden></p>
-    <div class="card" id="rounds"></div>
+
+    <p class="kicker" id="history-title" hidden></p>
+    <div class="list" id="rounds"></div>
     <p class="small muted" id="updated"></p>
     <p class="notice notice-warn" id="stale" hidden></p>
   </section>
 </main>
+<script src="config.js"></script>
 <script type="module" src="src/spectator.js"></script>
 </body>
 </html>

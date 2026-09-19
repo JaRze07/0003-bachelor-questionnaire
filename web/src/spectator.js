@@ -3,8 +3,8 @@ import { createApi } from './api.js';
 import { makeTranslator } from './i18n.js';
 import { $, el, timeAgo } from './host/ui.js';
 
-const POLL_MS = 8000;
-const STALE_MS = 20000;
+const POLL_MS = 2500;
+const STALE_MS = 15000;
 
 const token = new URLSearchParams(location.hash.slice(1)).get('t') ?? '';
 const api = createApi({ gameToken: token, timeoutMs: 7000 });
@@ -59,17 +59,47 @@ function render(data) {
   $('board').hidden = false;
   $('correct').textContent = data.score.correct;
   $('wrong').textContent = data.score.wrong;
-  $('waiting').hidden = data.rounds.length > 0;
-  if (!data.rounds.length) $('waiting').textContent = t('spectator.waiting');
+
+  const live = data.live;
+  $('live').hidden = !live;
+  if (live) {
+    $('live-kicker').textContent = t('spectator.now');
+    $('live-round').textContent = t('round.title', { n: live.n });
+    $('live-theme').textContent = live.theme ?? '';
+    $('live-question').textContent = live.question;
+    $('live-penalty-label').textContent = live.penalty.label || t('penalty.none');
+    $('live-penalty-text').textContent = live.penalty.description ?? '';
+    $('live-doubled').hidden = !live.doubled;
+    const box = $('live-answer-box');
+    box.classList.toggle('is-hidden', !live.answerRevealed);
+    $('live-answer-label').textContent = live.answerRevealed ? t('spectator.answer') : t('spectator.answerHidden');
+    $('live-answer').textContent = live.answerRevealed ? (live.answer || '—') : '• • •';
+  }
+
+  const finished = data.status === 'finished';
+  $('finished').hidden = !finished;
+  if (finished) $('finished').textContent = t('spectator.finished');
+  const nothingYet = !live && !data.rounds.length && !finished;
+  $('waiting').hidden = !nothingYet;
+  if (nothingYet) $('waiting').textContent = t('spectator.waiting');
+
+  $('history-title').hidden = data.rounds.length === 0;
+  $('history-title').textContent = t('spectator.history');
   const box = $('rounds');
   box.innerHTML = '';
   for (const round of [...data.rounds].reverse()) {
-    const row = el('div', 'spec-round');
-    row.appendChild(el('span', 'spec-n', `${round.n}`));
-    row.appendChild(el('span', 'grow', round.question));
-    if (round.doubled) row.appendChild(el('span', 'badge badge-live', '×2'));
-    row.appendChild(el('span', `pill pill-${round.result}`, t(`result.${round.result}`)));
-    box.appendChild(row);
+    const card = el('div', 'card spec-card');
+    const head = el('div', 'row-between');
+    head.appendChild(el('span', 'spec-n', `${round.n}`));
+    head.appendChild(el('span', `pill pill-${round.result}`, t(`result.${round.result}`)));
+    card.appendChild(head);
+    card.appendChild(el('p', 'a-question', round.question));
+    card.appendChild(el('p', 'a-answer', `${t('spectator.answer')}: ${round.answer || '—'}`));
+    const foot = el('p', 'small muted');
+    const bits = [round.penalty.label, round.penalty.description].filter(Boolean).join(' · ');
+    foot.textContent = `${bits}${round.doubled ? ' ×2' : ''}${round.takenBy?.length ? ` · ${t('spectator.takenBy', { names: round.takenBy.join(', ') })}` : ''}`;
+    if (foot.textContent.trim()) card.appendChild(foot);
+    box.appendChild(card);
   }
   $('updated').textContent = t('spectator.updated', { when: timeAgo(t, data.updatedAt) });
   markStale();

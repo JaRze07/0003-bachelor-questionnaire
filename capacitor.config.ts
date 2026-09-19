@@ -9,10 +9,8 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
   },
   plugins: {
-    FirebaseAuthentication: {
-      skipNativeAuth: false,
-      providers: ['google.com', 'apple.com'],
-    },
+    // Google sign-in through the native sheet; the ID token is exchanged for our own session by the API.
+    SocialLogin: { google: true, apple: false, facebook: false },
   },
 };
 

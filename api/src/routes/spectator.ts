@@ -16,7 +16,7 @@ export function spectatorRoutes({ repo }: AppDeps) {
     c.header('Cache-Control', 'no-store');
     c.header('ETag', etag);
     if (c.req.header('if-none-match') === etag) return c.body(null, 304);
-    return c.json({ language: p.language, title: p.title, status: p.status, score: p.score, rounds: p.rounds, revision: p.revision, updatedAt: p.updatedAt });
+    return c.json({ language: p.language, title: p.title, status: p.status, score: p.score, live: p.live ?? null, rounds: p.rounds, revision: p.revision, updatedAt: p.updatedAt });
   });
 
   return r;

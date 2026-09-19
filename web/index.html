@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b0b12">
 <meta name="referrer" content="no-referrer">
 <title>Bachelor Questionnaire</title>
-<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
 <main id="app">
@@ -17,8 +17,11 @@
     <div class="stack">
       <p class="lede" data-t="app.tagline"></p>
       <div class="spacer"></div>
+      <div id="google-button" class="row" style="justify-content:center" hidden></div>
       <button class="btn btn-primary btn-huge" id="btn-signin" data-t="home.signIn"></button>
+      <p class="form-note" id="signin-error"></p>
       <p class="lede small" data-t="home.signInWhy"></p>
+      <p class="lede small" id="web-hint" data-t="home.webHint" hidden></p>
     </div>
   </section>
 
@@ -294,6 +297,7 @@
     <div class="stack">
       <p class="lede" data-t="premium.pitch"></p>
       <div class="notice notice-info" id="premium-state"></div>
+      <div class="notice notice-info" id="premium-web" data-t="premium.webNotice" hidden></div>
       <button class="btn btn-primary btn-huge" id="btn-buy"></button>
       <button class="btn btn-ghost" id="btn-restore" data-t="premium.restore"></button>
       <p class="form-note" id="premium-error"></p>
@@ -302,6 +306,7 @@
 
 </main>
 <div id="modal-root"></div>
+<script src="config.js"></script>
 <script type="module" src="src/main.js"></script>
 </body>
 </html>

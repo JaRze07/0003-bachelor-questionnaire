@@ -161,5 +161,15 @@
   "time.justNow": "gerade eben",
   "time.secondsAgo": "vor {n} Sek.",
   "time.minutesAgo": "vor {n} Min.",
-  "time.hoursAgo": "vor {n} Std."
+  "time.hoursAgo": "vor {n} Std.",
+  "spectator.now": "Gerade dran",
+  "spectator.answerHidden": "Die Antwort ist noch verdeckt",
+  "spectator.answer": "Die Antwort war",
+  "spectator.history": "Bisher gespielt",
+  "spectator.finished": "Das Spiel ist vorbei",
+  "spectator.takenBy": "{names} ist dran",
+  "partner.disclosure": "Deine Antworten werden auf der Party vorgelesen und den Gästen gezeigt.",
+  "premium.webNotice": "Premium kaufst du in der Android-App. Es gehört zu deinem Konto und gilt deshalb auch hier.",
+  "home.signInGoogle": "Mit Google anmelden",
+  "home.webHint": "Du kannst das ganze Spiel in diesem Browser leiten."
 }
