@@ -161,5 +161,15 @@
   "time.justNow": "przed chwilą",
   "time.secondsAgo": "{n} s temu",
   "time.minutesAgo": "{n} min temu",
-  "time.hoursAgo": "{n} godz. temu"
+  "time.hoursAgo": "{n} godz. temu",
+  "spectator.now": "Teraz na tapecie",
+  "spectator.answerHidden": "Odpowiedź jest jeszcze ukryta",
+  "spectator.answer": "Odpowiedź partnera",
+  "spectator.history": "Dotychczas zagrane",
+  "spectator.finished": "Gra zakończona",
+  "spectator.takenBy": "Karę bierze: {names}",
+  "partner.disclosure": "Twoje odpowiedzi zostaną odczytane na głos i pokazane gościom imprezy.",
+  "premium.webNotice": "Premium kupisz w aplikacji na Androida. Jest przypisane do konta, więc działa także tutaj.",
+  "home.signInGoogle": "Zaloguj się przez Google",
+  "home.webHint": "Całą grę możesz poprowadzić w tej przeglądarce."
 }

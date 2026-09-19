@@ -5,6 +5,7 @@ import { saveGame } from '../store/journal.js';
 import { answerFor } from '../logic/queue.js';
 import { validateCustomList } from '../logic/penalties.js';
 import { buy, productPrice, restore } from '../native/purchases.js';
+import { isNative } from '../native/device.js';
 
 const snap = () => state.snapshot;
 const t = (...a) => state.t(...a);
@@ -218,7 +219,11 @@ export async function renderPremium() {
   const key = map[premiumState()];
   box.hidden = !key;
   if (key) box.textContent = t(key);
-  $('btn-buy').hidden = premiumState() === 'active';
+  // Store billing exists only inside the app; on the web premium simply follows the account.
+  const web = !isNative() && Boolean(globalThis.GOOGLE_CLIENT_ID);
+  $('premium-web').hidden = !web || premiumState() === 'active';
+  $('btn-buy').hidden = premiumState() === 'active' || web;
+  $('btn-restore').hidden = web;
   $('premium-error').textContent = '';
 }
 

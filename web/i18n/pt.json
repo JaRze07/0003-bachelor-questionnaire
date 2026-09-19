@@ -161,5 +161,15 @@
   "time.justNow": "agora mesmo",
   "time.secondsAgo": "há {n} s",
   "time.minutesAgo": "há {n} min",
-  "time.hoursAgo": "há {n} h"
+  "time.hoursAgo": "há {n} h",
+  "spectator.now": "Em jogo agora",
+  "spectator.answerHidden": "A resposta ainda está escondida",
+  "spectator.answer": "O par disse",
+  "spectator.history": "Jogado até agora",
+  "spectator.finished": "O jogo acabou",
+  "spectator.takenBy": "{names} paga a prenda",
+  "partner.disclosure": "Suas respostas serão lidas em voz alta e mostradas aos convidados da festa.",
+  "premium.webNotice": "O Premium é comprado no app para Android. Ele acompanha sua conta, então vale aqui também.",
+  "home.signInGoogle": "Entrar com o Google",
+  "home.webHint": "Você pode conduzir o jogo inteiro neste navegador."
 }

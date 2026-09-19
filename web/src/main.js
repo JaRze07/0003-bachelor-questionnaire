@@ -1,10 +1,10 @@
 // Host app entry: sign-in, game list, game overview, wiring for every screen.
 import { $, applyStatic, confirmModal, el, on, onScreenChange, show, timeAgo, toast } from './host/ui.js';
-import { openGame, premium, refreshGame, refreshMe, setLanguage, state, sync } from './host/state.js';
+import { onSessionLost, openGame, premium, refreshGame, refreshMe, setLanguage, state, sync } from './host/state.js';
 import { pool, renderFixup, renderScoreboard, startRound, wireRound } from './host/round.js';
 import { renderPremium, renderQuestions, renderSettings, wireEditors } from './host/editors.js';
 import { readinessState, runReadiness } from './host/readiness.js';
-import { currentUser, signIn, signOut } from './native/auth.js';
+import { currentUser, mountGoogleButton, signIn, signInMode, signOut } from './native/auth.js';
 import { countUse, initAds, maybeInterstitial, syncBanner } from './native/ads.js';
 import { copy, deviceId, deviceLabel, downloadJson, trackForeground } from './native/device.js';
 import { divergentEvents, loadGame, saveGame } from './store/journal.js';
@@ -30,9 +30,34 @@ async function boot() {
   window.addEventListener('online', () => { state.online = true; sync().catch(() => {}); drainOutbox(state.api).catch(() => {}); });
   window.addEventListener('offline', () => { state.online = false; });
 
+  // A session that died on the server (signed out elsewhere, expired) ends here too. A game that is already
+  // open keeps playing from the local journal; only the next server call needs a fresh sign-in.
+  onSessionLost(async () => {
+    if (state.snapshot && ['setup', 'question', 'penalty', 'strike'].includes(document.querySelector('.screen:not([hidden])')?.id?.replace('screen-', ''))) return;
+    await signOut();
+    state.user = null;
+    await showSignIn();
+  });
+
   state.user = await currentUser();
-  if (!state.user) { show('signin'); return; }
+  if (!state.user) { await showSignIn(); return; }
   await afterSignIn();
+}
+
+async function showSignIn() {
+  show('signin');
+  const mode = signInMode();
+  $('web-hint').hidden = mode === 'native';
+  if (mode !== 'web') { $('google-button').hidden = true; $('btn-signin').hidden = false; return; }
+  // In a browser Google draws the button itself; ours stays as the fallback if their script cannot load.
+  try {
+    await mountGoogleButton($('google-button'), async (user) => { state.user = user; await afterSignIn(); },
+      () => { $('signin-error').textContent = t('error.generic'); });
+    $('google-button').hidden = false;
+    $('btn-signin').hidden = true;
+  } catch {
+    $('signin-error').textContent = t('error.offline');
+  }
 }
 
 async function afterSignIn() {
@@ -278,7 +303,7 @@ function wire() {
     state.user = await signIn();
     if (state.user) await afterSignIn();
   });
-  on('btn-signout', 'click', async () => { await signOut(); state.user = null; show('signin'); });
+  on('btn-signout', 'click', async () => { await signOut(); state.user = null; state.me = null; await showSignIn(); });
   on('btn-new-game', 'click', async () => {
     $('new-blank-row').hidden = !premium();
     show('new');

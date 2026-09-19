@@ -10,7 +10,7 @@ export class ApiError extends Error {
 
 export const DEFAULT_TIMEOUT_MS = 12000;
 
-export function createApi({ baseUrl, getToken, gameToken, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+export function createApi({ baseUrl, getToken, gameToken, onUnauthorized, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   const base = (baseUrl || globalThis.API_BASE || 'http://localhost:8080').replace(/\/+$/, '');
 
   async function request(method, path, body, extraHeaders = {}) {
@@ -38,7 +38,11 @@ export function createApi({ baseUrl, getToken, gameToken, timeoutMs = DEFAULT_TI
     if (res.status === 204 || res.status === 304) return { status: res.status };
     const text = await res.text();
     const payload = text ? JSON.parse(text) : {};
-    if (!res.ok) throw new ApiError(res.status, payload.error?.code, payload.error?.message, payload.error?.details);
+    if (!res.ok) {
+      // A dead session (signed out elsewhere, expired) sends the organiser back to sign-in instead of failing every call.
+      if (res.status === 401 && onUnauthorized) { try { onUnauthorized(payload.error?.code); } catch { /* ignore */ } }
+      throw new ApiError(res.status, payload.error?.code, payload.error?.message, payload.error?.details);
+    }
     payload.__etag = res.headers.get('etag') || undefined;
     return payload;
   }

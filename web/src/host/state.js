@@ -7,8 +7,11 @@ import { pullGame, pushEvents } from '../store/sync.js';
 import { deviceId } from '../native/device.js';
 import { meta, setMeta } from '../store/idb.js';
 
+let unauthorizedHandler = null;
+export function onSessionLost(fn) { unauthorizedHandler = fn; }
+
 export const state = {
-  api: createApi({ getToken: idToken }),
+  api: createApi({ getToken: idToken, onUnauthorized: (code) => unauthorizedHandler?.(code) }),
   user: null,
   me: null,          // GET /me payload
   t: null,           // translator for the current surface

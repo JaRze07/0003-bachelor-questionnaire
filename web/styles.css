@@ -458,3 +458,12 @@ body {
 .spec-round { display: flex; align-items: baseline; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .spec-round:last-child { border-bottom: 0; }
 .spec-n { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 26px; }
+
+/* ---------- live guest view ---------- */
+.live-card { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(245, 196, 81, .25); }
+.live-penalty { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 15px; }
+.live-answer { background: var(--surface-2); border-radius: 12px; padding: 12px; }
+.live-answer p { margin: 4px 0 0; font-size: 20px; font-weight: 800; color: var(--accent); }
+.live-answer.is-hidden p { color: var(--muted); letter-spacing: .3em; }
+.spec-card { gap: 6px; }
+.spec-card .a-question { font-size: 16px; }
