@@ -6,6 +6,12 @@ import { getRepo } from './repo/index.js';
 import { createPlayVerifier } from './domain/play.js';
 import { createGoogleVerifier } from './domain/google.js';
 
+// A production container must never accept development sign-in or fake purchases.
+if (process.env.NODE_ENV === 'production' && (process.env.DEV_AUTH === '1' || process.env.PLAY_FAKE === '1')) {
+  console.error(JSON.stringify({ severity: 'CRITICAL', message: 'DEV_AUTH and PLAY_FAKE are not allowed in production' }));
+  process.exit(1);
+}
+
 const repo = await getRepo();
 const curatedDir = new URL('../curated/', import.meta.url);
 
@@ -52,7 +58,7 @@ async function backup() {
 }
 
 if (process.env.HOUSEKEEPING !== 'off') {
-  setTimeout(() => { housekeeping(); backup(); }, 60_000).unref();
+  setTimeout(async () => { await housekeeping(); await backup(); }, 60_000).unref();
   setInterval(housekeeping, 6 * HOUR).unref();
   setInterval(backup, 24 * HOUR).unref();
 }

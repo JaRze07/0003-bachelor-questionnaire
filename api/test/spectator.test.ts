@@ -85,3 +85,17 @@ describe('live guest view', () => {
     expect((await h.token('/s/summary', g.spectator)).status).toBe(404);
   });
 });
+
+describe('hidden questions', () => {
+  it('cannot be started, so their answers can never reach the guest page', async () => {
+    const h = harness();
+    const g = await seedGame(h);
+    await h.host(`/games/${g.id}`, { method: 'PATCH', json: { hiddenQuestionIds: [g.questions[0].id] } });
+    await start(h, g);
+    const res = await upload(h, g, [startEvent(g, 0, 1), ev('round.reveal', 2, { roundId: 'round-1' })]);
+    expect((await res.json() as any).rejected).toHaveLength(2);
+    const s = await summary(h, g);
+    expect(s.live).toBeNull();
+    expect(JSON.stringify(s)).not.toContain(`answer ${g.questions[0].id}`);
+  });
+});

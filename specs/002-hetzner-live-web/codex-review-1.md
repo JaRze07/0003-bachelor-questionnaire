@@ -1,0 +1,37 @@
+- **P0 — [`api/src/repo/sqlite.ts`](api/src/repo/sqlite.ts): external reads share the writer connection and bypass the transaction queue.** A spectator GET can run while another request is suspended inside `tx()` and observe uncommitted or intermediate projection data. That can expose an answer written by a reveal/mark operation before its request commits—even if the transaction later rolls back. **Fix:** use a separate SQLite connection for reads outside the current `AsyncLocalStorage` transaction, while transaction-internal reads use the writer connection; alternatively queue all external reads behind the active transaction without deadlocking nested reads.
+
+- **P1 — [`deploy/docker-compose.yml`](deploy/docker-compose.yml): production defaults to the fake Play verifier.** `PLAY_FAKE: ${BQ_PLAY_FAKE:-1}` lets users submit predictable `ok-*` purchase tokens and receive active premium state. The `.env` interpolation defect below also means setting `BQ_PLAY_FAKE=0` only in that file does not disable it. **Fix:** default to `0`, enable the fake only in a separate development compose override, and fail startup in production when fake purchase verification is enabled.
+
+- **P1 — [`deploy/docker-compose.yml`](deploy/docker-compose.yml), [`deploy/install.sh`](deploy/install.sh): the shared `/srv/jr07/.env` is not used for Compose interpolation.** A service-level `env_file` supplies variables to the container; it does not supply `${BQ_*}` values while parsing the Compose file. Consequently the explicit `environment` entries override configuration with empty Google client IDs/default fake Play, and `${JR07_NETWORK}` may resolve to the wrong network. Browser sign-in then falls back to a dev token that the API rejects. **Fix:** invoke every app Compose command with `docker compose --env-file "$ROOT/.env" ...` (or export a validated environment first), and remove defaults that silently produce an unusable or insecure production configuration.
+
+- **P1 — [`api/src/app.ts`](api/src/app.ts), [`api/src/routes/auth.ts`](api/src/routes/auth.ts): Google token verification runs while holding `BEGIN IMMEDIATE`.** The global mutation middleware opens the write transaction before `/v1/auth/google` reads the body and awaits `verifyIdToken()`. A slow Google request therefore blocks every writer in the application. **Fix:** exclude the exact `/v1/auth/google` route from the outer transaction, verify the token first, then wrap only the session/user writes in a short `repo.tx()`.
+
+- **P1 — [`deploy/install.sh`](deploy/install.sh): the pre-deploy backup copies only the live main database file.** SQLite is in WAL mode and the existing container is still running, so committed data may exist only in `bachelor.db-wal`; a concurrent checkpoint can also make the bytewise copy inconsistent. **Fix:** use SQLite’s online backup API/CLI, or stop the container and checkpoint/close SQLite before copying the database.
+
+- **P1 — [`api/src/server.ts`](api/src/server.ts), [`api/src/repo/sqlite.ts`](api/src/repo/sqlite.ts): scheduled backups bypass the writer queue.** `store.backup()` can start on the same `DatabaseSync` connection while a request transaction is active; the startup timer even launches housekeeping and backup concurrently. This can make the backup fail as busy or capture connection state that is not a committed boundary. **Fix:** expose a queue barrier for backup that waits for the active transaction and blocks new writers without opening another transaction, or perform the online backup from a separate read connection. Await housekeeping and backup sequentially at startup.
+
+- **P1 — [`api/src/routes/events.ts`](api/src/routes/events.ts), [`api/src/domain/projection.ts`](api/src/domain/projection.ts): hidden questions can be started and projected.** `round.start` accepts any existing question without checking `game.hiddenQuestionIds`, and `buildProjection()` has no playable-question filter. A stale or crafted organiser request can therefore freeze and reveal a hidden question’s answer, while `score.total` excludes that question. **Fix:** reject starts for hidden questions server-side and pass the playable question IDs into projection building so hidden/deleted rounds are excluded defensively.
+
+- **P2 — [`deploy/docker-compose.yml`](deploy/docker-compose.yml), [`deploy/install.sh`](deploy/install.sh): the app and dashboard receive the same default Compose project name.** Both compose directories are named `deploy`, so both projects default to project name `deploy`. The app deployment treats dashboard containers as orphans, and later `down`/`--remove-orphans` operations can remove the shared Caddy/dashboard services. **Fix:** set a unique top-level Compose `name`, such as `jr07-bachelor`, or consistently pass `-p jr07-bachelor`.
+
+- **P2 — [`api/src/repo/memory.ts`](api/src/repo/memory.ts): `tx()` neither rolls back nor isolates concurrent transactions.** The process-global `depth` makes an unrelated concurrent request appear nested, so it bypasses the queue and interleaves writes. On an API error, partial writes remain even though the middleware relies on `tx()` rollback semantics. **Fix:** use `AsyncLocalStorage` for nested-transaction detection and snapshot/restore all maps for an outer transaction on failure.
+---
+
+## What Claude did with this review (2026-09-19)
+
+All nine findings were real and are fixed.
+
+| Finding | Fix |
+|---|---|
+| Reads outside a transaction shared the writer connection | A second, read-only connection serves every read outside a transaction; in WAL mode it sees committed data only. Reads inside a transaction still use the writer, so they see their own writes. Test on a real file: a reader running during an open transaction does not see its write. |
+| Fake purchase verification was the production default | `PLAY_FAKE` is `0` in the compose file and the server refuses to start in production with `PLAY_FAKE=1` or `DEV_AUTH=1`. Verified. |
+| `env_file` does not feed compose interpolation | The app has its own settings file, `/srv/jr07/bachelor.env`, passed with `--env-file` by the install script. It also means the dashboard's secrets are no longer mounted into this container. `BQ_PUBLIC_URL` is mandatory. |
+| Sign-in held the writer while Google answered | `/v1/auth/*` is outside the request transaction; only the two writes share a short one. |
+| Pre-deploy backup copied the main file only | `dist/backup.js` takes an online SQLite backup from a read-only connection; the install script runs it inside the running container. Verified against a live server. |
+| Scheduled backup on the writer connection | Backups run from the read connection, and housekeeping and backup run one after the other. |
+| Hidden questions could be started | `round.start` and fix-ups refuse a hidden question, and the projection drops rounds of questions hidden later. Test added. |
+| Compose project name collided with the dashboard's | `name: jr07-bachelor`. Both compose files live in a directory called `deploy`; without the name this project would have adopted the dashboard, terminal and Caddy containers as its orphans. |
+| The memory store's `tx()` did not isolate or roll back | AsyncLocalStorage for nesting, snapshot and restore on failure. The rollback tests now run against both stores. |
+
+The install script additionally keeps the previous Caddyfile, validates before reloading, and restores the old file
+if validation fails, so a mistake here cannot take the dashboard offline.

@@ -52,7 +52,7 @@ export function createApp(deps: AppDeps) {
   app.use('/v1/*', async (c, next) => {
     const path = c.req.path;
     const reads = c.req.method === 'GET' || c.req.method === 'OPTIONS' || c.req.method === 'HEAD';
-    if (reads || path.includes('/me/purchases') || path.includes('/internal/')) return next();
+    if (reads || path.includes('/me/purchases') || path.includes('/internal/') || path.startsWith('/v1/auth/')) return next();
     try {
       await deps.repo.tx(async () => {
         await next();

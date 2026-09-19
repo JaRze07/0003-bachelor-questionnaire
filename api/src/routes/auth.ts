@@ -18,9 +18,12 @@ export function authRoutes({ repo, google }: AppDeps) {
     const token = newToken();
     const now = nowIso();
     const expiresAt = new Date(Date.now() + SESSION_DAYS * 86_400_000).toISOString();
-    await repo.sessions.set({ id: hashToken(token), uid, provider: 'google', createdAt: now, expiresAt });
-    const existing = await repo.users.get(uid);
-    if (!existing) await repo.users.set({ uid, premium: { state: 'none' }, createdAt: now, lastSeenAt: now });
+    // Google was asked before this point; only the two writes share a short transaction.
+    await repo.tx(async () => {
+      await repo.sessions.set({ id: hashToken(token), uid, provider: 'google', createdAt: now, expiresAt });
+      const existing = await repo.users.get(uid);
+      if (!existing) await repo.users.set({ uid, premium: { state: 'none' }, createdAt: now, lastSeenAt: now });
+    });
     return c.json({ token, uid, name: identity.name ?? null, expiresAt });
   });
 

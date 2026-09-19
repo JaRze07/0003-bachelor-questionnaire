@@ -10,7 +10,10 @@ const penaltyOf = (r: Round): ProjectionPenalty => ({ type: r.penalty.type, labe
  * Never included: answers of questions not played yet, the current answer before the reveal, hidden or
  * deleted questions, voided rounds, anything about the organiser's account.
  */
-export function buildProjection(game: Game, rounds: Round[], playableTotal: number, now: string): Projection {
+export function buildProjection(game: Game, allRounds: Round[], playableTotal: number, now: string): Projection {
+  // Defensive: a round of a question the organiser has hidden since is not shown either.
+  const hidden = new Set(game.hiddenQuestionIds ?? []);
+  const rounds = allRounds.filter((r) => !hidden.has(r.questionId));
   const marked = rounds
     .filter((r) => !r.voided && (r.result === 'correct' || r.result === 'wrong'))
     .sort((a, b) => a.n - b.n);

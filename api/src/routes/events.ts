@@ -59,7 +59,7 @@ export function applyEvent(full: FullGame, e: GameEvent): boolean {
       if (!roundId) return false;
       if (round) return true; // already applied
       const q = questions.find((x) => x.id === str(p.questionId, 64));
-      if (!q) return false;
+      if (!q || game.hiddenQuestionIds.includes(q.id)) return false;
       const client = p.frozen as Partial<FrozenRound> | undefined;
       const ans = answerFor(q, answers.find((a) => a.questionId === q.id) ?? null);
       const frozen: FrozenRound = {
@@ -133,7 +133,7 @@ export function applyEvent(full: FullGame, e: GameEvent): boolean {
         return true;
       }
       const q = questions.find((x) => x.id === qId);
-      if (!q) return false;
+      if (!q || game.hiddenQuestionIds.includes(q.id)) return false;
       rounds.push({
         id: roundId || `fix-${e.id}`, n: rounds.length + 1, questionId: q.id,
         frozen: { questionRev: q.rev, text: q.text, theme: q.theme, answer: answerFor(q, answers.find((a) => a.questionId === q.id) ?? null), penaltyScheme: game.settings.penaltyScheme, rules: { ...game.settings.rules } },

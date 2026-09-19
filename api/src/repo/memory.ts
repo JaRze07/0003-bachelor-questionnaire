@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Answer, Game, GameEvent, Projection, Purchase, Question, Repo, Round, Session, Snapshot, TokenDoc, User } from './types.js';
 
 const clone = <T>(v: T): T => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
@@ -17,7 +18,9 @@ export function createMemoryRepo(): Repo & { dump(): unknown } {
   const snapshots = new Map<string, Snapshot[]>();
   const sessions = new Map<string, Session>();
   let queue: Promise<unknown> = Promise.resolve();
-  let depth = 0;
+  const inTx = new AsyncLocalStorage<true>();
+  const stores = () => ({ users, purchases, games, questions, answers, rounds, events, tokens, projections, snapshots, sessions }) as Record<string, Map<string, unknown>>;
+  const copy = (m: Map<string, unknown>) => new Map([...m].map(([k, v]) => [k, v instanceof Map ? new Map([...v].map(([k2, v2]) => [k2, clone(v2)])) : clone(v)]));
 
   const bucket = <T>(m: Map<string, Map<string, T>>, gameId: string) => {
     let b = m.get(gameId);
@@ -26,10 +29,18 @@ export function createMemoryRepo(): Repo & { dump(): unknown } {
   };
 
   return {
-    /** Serialised like the SQLite repository, but without rollback: this store is for tests and local runs. */
+    /** Same contract as the SQLite repository: serialised, nested calls join, a failure restores every map. */
     async tx(fn) {
-      if (depth > 0) return fn();
-      const run = queue.then(async () => { depth++; try { return await fn(); } finally { depth--; } });
+      if (inTx.getStore()) return fn();
+      const run = queue.then(async () => {
+        const before = Object.fromEntries(Object.entries(stores()).map(([name, m]) => [name, copy(m)]));
+        try {
+          return await inTx.run(true, fn);
+        } catch (err) {
+          for (const [name, m] of Object.entries(stores())) { m.clear(); for (const [k, v] of before[name]) m.set(k, v); }
+          throw err;
+        }
+      });
       queue = run.catch(() => undefined);
       return run;
     },

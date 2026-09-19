@@ -37,6 +37,27 @@ export function createSqliteRepo(path = process.env.DB_PATH ?? './data/bachelor.
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
+  // Reads outside a transaction use their own read-only connection. In WAL mode it sees committed data only,
+  // so a guest poll can never observe a half-applied request, whatever that request awaits. (An in-memory
+  // database cannot be shared between connections; it is used by tests only and keeps the single connection.)
+  const reader = path === ':memory:' ? db : new DatabaseSync(path, { readOnly: true });
+  if (reader !== db) reader.exec('PRAGMA busy_timeout = 5000;');
+
+  const READS = {
+    get: 'SELECT data FROM docs WHERE kind = ? AND parent = ? AND id = ?',
+    list: 'SELECT data FROM docs WHERE kind = ? AND parent = ?',
+    exists: 'SELECT 1 AS one FROM docs WHERE kind = ? AND parent = ? AND id = ?',
+    gamesByHost: "SELECT data FROM docs WHERE kind = 'games' AND json_extract(data, '$.hostUid') = ?",
+    gamesIdle: "SELECT data FROM docs WHERE kind = 'games' AND json_extract(data, '$.lastActivityAt') < ? LIMIT 500",
+    purchasesByUid: "SELECT data FROM docs WHERE kind = 'purchases' AND json_extract(data, '$.uid') = ?",
+    snapshotsOf: "SELECT id, data FROM docs WHERE kind = 'snapshots' AND parent = ? ORDER BY json_extract(data, '$.createdAt') DESC",
+  } as const;
+  type ReadName = keyof typeof READS;
+  const prepared = (conn: DatabaseSync) => Object.fromEntries(
+    Object.entries(READS).map(([name, sql]) => [name, conn.prepare(sql)]),
+  ) as Record<ReadName, ReturnType<DatabaseSync['prepare']>>;
+  const onWriter = prepared(db);
+  const onReader = reader === db ? onWriter : prepared(reader);
 
   const q = {
     get: db.prepare('SELECT data FROM docs WHERE kind = ? AND parent = ? AND id = ?'),
@@ -54,14 +75,16 @@ export function createSqliteRepo(path = process.env.DB_PATH ?? './data/bachelor.
     snapshotsOf: db.prepare("SELECT id, data FROM docs WHERE kind = 'snapshots' AND parent = ? ORDER BY json_extract(data, '$.createdAt') DESC"),
   };
 
-  const parse = <T>(row: unknown): T | null => (row ? (JSON.parse((row as { data: string }).data) as T) : null);
-  const rows = <T>(list: unknown[]): T[] => list.map((r) => JSON.parse((r as { data: string }).data) as T);
-  const get = <T>(kind: string, parent: string, id: string) => parse<T>(q.get.get(kind, parent, id));
-  const put = (kind: string, parent: string, id: string, value: unknown) => { q.put.run(kind, parent, id, JSON.stringify(value)); };
-  const list = <T>(kind: string, parent: string) => rows<T>(q.list.all(kind, parent));
-
   /* ---- transactions: one writer at a time, real BEGIN/COMMIT ---- */
   const inTx = new AsyncLocalStorage<true>();
+  /** Inside a transaction read your own writes; outside, read committed data from the read-only connection. */
+  const r = () => (inTx.getStore() ? onWriter : onReader);
+
+  const parse = <T>(row: unknown): T | null => (row ? (JSON.parse((row as { data: string }).data) as T) : null);
+  const rows = <T>(list: unknown[]): T[] => list.map((row) => JSON.parse((row as { data: string }).data) as T);
+  const get = <T>(kind: string, parent: string, id: string) => parse<T>(r().get.get(kind, parent, id));
+  const put = (kind: string, parent: string, id: string, value: unknown) => { q.put.run(kind, parent, id, JSON.stringify(value)); };
+  const list = <T>(kind: string, parent: string) => rows<T>(r().list.all(kind, parent));
   let queue: Promise<unknown> = Promise.resolve();
 
   async function tx<T>(fn: () => Promise<T>): Promise<T> {
@@ -86,10 +109,11 @@ export function createSqliteRepo(path = process.env.DB_PATH ?? './data/bachelor.
 
   return {
     tx,
-    close() { db.close(); },
+    close() { if (reader !== db) reader.close(); db.close(); },
+    /** Online backup from the read connection: a committed snapshot, never in the way of the writer. */
     async backup(to: string) {
       const { backup } = await import('node:sqlite');
-      await backup(db, to);
+      await backup(reader, to);
     },
 
     sessions: {
@@ -109,7 +133,7 @@ export function createSqliteRepo(path = process.env.DB_PATH ?? './data/bachelor.
     purchases: {
       async get(token) { return get<Purchase>('purchases', '', token); },
       set: (p) => write(() => put('purchases', '', p.token, p)),
-      async listByUid(uid) { return rows<Purchase>(q.purchasesByUid.all(uid)); },
+      async listByUid(uid) { return rows<Purchase>(r().purchasesByUid.all(uid)); },
       claim: (token, uid) => write(() => {
         const existing = get<Purchase>('purchases', '', token);
         if (existing && existing.uid !== uid) return { ok: false as const, uid: existing.uid };
@@ -131,8 +155,8 @@ export function createSqliteRepo(path = process.env.DB_PATH ?? './data/bachelor.
         const current = get<Game>('games', '', id);
         if (current) put('games', '', id, { ...current, ...fields });
       }),
-      async listByHost(uid) { return rows<Game>(q.gamesByHost.all(uid)); },
-      async listIdleBefore(iso) { return rows<Game>(q.gamesIdle.all(iso)); },
+      async listByHost(uid) { return rows<Game>(r().gamesByHost.all(uid)); },
+      async listIdleBefore(iso) { return rows<Game>(r().gamesIdle.all(iso)); },
       deleteTree: (id) => write(() => {
         for (const kind of GAME_KINDS) q.delParent.run(kind, id);
         q.tokensOfGame.run(id);                              // link tokens are keyed by hash, not by game
@@ -166,7 +190,7 @@ export function createSqliteRepo(path = process.env.DB_PATH ?? './data/bachelor.
       delete: (gameId, id) => write(() => { q.del.run('rounds', gameId, id); }),
     },
     events: {
-      async has(gameId, id) { return Boolean(q.exists.get('events', gameId, id)); },
+      async has(gameId, id) { return Boolean(r().exists.get('events', gameId, id)); },
       add: (gameId, e) => write(() => { q.insert.run('events', gameId, e.id, JSON.stringify(e)); }),
       async list(gameId) { return list<GameEvent>('events', gameId).sort((a, b) => a.seq - b.seq); },
     },
@@ -184,11 +208,11 @@ export function createSqliteRepo(path = process.env.DB_PATH ?? './data/bachelor.
     snapshots: {
       add: (gameId, s, keep) => write(() => {
         put('snapshots', gameId, s.id, s);
-        const all = q.snapshotsOf.all(gameId) as { id: string }[];
+        const all = onWriter.snapshotsOf.all(gameId) as { id: string }[];
         for (const old of all.slice(keep)) q.del.run('snapshots', gameId, old.id);
       }),
       async latest(gameId) {
-        const all = q.snapshotsOf.all(gameId) as { data: string }[];
+        const all = r().snapshotsOf.all(gameId) as { data: string }[];
         return all.length ? (JSON.parse(all[0].data) as Snapshot) : null;
       },
     },
