@@ -1,0 +1,38 @@
+# Bachelor Questionnaire on the JR07 box (Hetzner CX33). One container: API + pages, SQLite file on disk.
+# Caddy from the dashboard's compose project terminates TLS and proxies to `bachelor-api:8080`, so this service
+# joins that project's network instead of publishing a port.
+#
+#   /srv/jr07/apps/0003            checkout of this repo
+#   /srv/jr07/data/bachelor        bachelor.db (+ -wal, -shm) and backups/
+#   /srv/jr07/.env                 secrets shared with the dashboard; this app reads only the BQ_* names
+services:
+  bachelor-api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: jr07-bachelor-api
+    container_name: bachelor-api
+    restart: unless-stopped
+    env_file:
+      - path: ../../../.env
+        required: false
+    environment:
+      WEB_BASE: ${BQ_PUBLIC_URL:-https://bq.91-98-25-205.sslip.io}
+      CORS_ORIGINS: ${BQ_PUBLIC_URL:-https://bq.91-98-25-205.sslip.io},capacitor://localhost,https://localhost
+      GOOGLE_WEB_CLIENT_ID: ${BQ_GOOGLE_WEB_CLIENT_ID:-}
+      GOOGLE_CLIENT_IDS: ${BQ_GOOGLE_CLIENT_IDS:-}
+      PLAY_PACKAGE_NAME: com.jr07.bachelorquestionnaire
+      PLAY_FAKE: ${BQ_PLAY_FAKE:-1}                    # 1 until the Play Console and its service account exist
+      GOOGLE_APPLICATION_CREDENTIALS: /secrets/play-service-account.json
+      DEV_AUTH: "0"
+    volumes:
+      - ../../../data/bachelor:/data
+      - ../../../secrets/bachelor:/secrets:ro
+    expose: ["8080"]
+    mem_limit: 512m
+    networks: [jr07]
+
+networks:
+  jr07:
+    external: true
+    name: ${JR07_NETWORK:-deploy_default}
