@@ -171,5 +171,6 @@
   "partner.disclosure": "Your answers will be read out and shown to the party guests.",
   "premium.webNotice": "Premium is bought in the Android app. It follows your account, so it works here too.",
   "home.signInGoogle": "Sign in with Google",
-  "home.webHint": "You can run the whole game from this browser."
+  "home.webHint": "You can run the whole game from this browser.",
+  "home.signInUnconfigured": "Sign-in is not set up on this server yet. The party links still work; ask the organiser."
 }

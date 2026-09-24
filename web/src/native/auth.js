@@ -31,7 +31,16 @@ async function exchange(googleIdToken) {
   return { uid: session.uid, name: session.name, provider: 'google' };
 }
 
-export const signInMode = () => (plugin() && isNative() ? 'native' : clientId() ? 'web' : 'dev');
+/**
+ * 'native' in the app, 'web' in a browser with a Google client configured, 'dev' for local work.
+ * 'unconfigured' is a deployed server whose Google client id has not been set yet: sign-in cannot work and the
+ * screen says so instead of failing with a generic error.
+ */
+export const signInMode = () => {
+  if (plugin() && isNative()) return 'native';
+  if (clientId()) return 'web';
+  return location.hostname === 'localhost' || location.hostname === '127.0.0.1' ? 'dev' : 'unconfigured';
+};
 
 /** Native and dev sign-in, started by a tap on our own button. */
 export async function signIn() {

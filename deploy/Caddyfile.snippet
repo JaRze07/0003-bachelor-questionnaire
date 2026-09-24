@@ -1,6 +1,0 @@
-# Append to /srv/jr07/app/deploy/Caddyfile (the dashboard's Caddy owns ports 80 and 443), then
-# `docker compose -f /srv/jr07/app/deploy/docker-compose.yml exec caddy caddy reload --config /etc/caddy/Caddyfile`
-bq.91-98-25-205.sslip.io {
-	encode zstd gzip
-	reverse_proxy bachelor-api:8080
-}

@@ -171,5 +171,6 @@
   "partner.disclosure": "Twoje odpowiedzi zostaną odczytane na głos i pokazane gościom imprezy.",
   "premium.webNotice": "Premium kupisz w aplikacji na Androida. Jest przypisane do konta, więc działa także tutaj.",
   "home.signInGoogle": "Zaloguj się przez Google",
-  "home.webHint": "Całą grę możesz poprowadzić w tej przeglądarce."
+  "home.webHint": "Całą grę możesz poprowadzić w tej przeglądarce.",
+  "home.signInUnconfigured": "Logowanie nie jest jeszcze skonfigurowane na tym serwerze. Linki imprezowe działają normalnie."
 }

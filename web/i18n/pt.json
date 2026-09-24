@@ -171,5 +171,6 @@
   "partner.disclosure": "Suas respostas serão lidas em voz alta e mostradas aos convidados da festa.",
   "premium.webNotice": "O Premium é comprado no app para Android. Ele acompanha sua conta, então vale aqui também.",
   "home.signInGoogle": "Entrar com o Google",
-  "home.webHint": "Você pode conduzir o jogo inteiro neste navegador."
+  "home.webHint": "Você pode conduzir o jogo inteiro neste navegador.",
+  "home.signInUnconfigured": "O login ainda não está configurado neste servidor. Os links da festa continuam funcionando."
 }

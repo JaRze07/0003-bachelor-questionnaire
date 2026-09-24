@@ -1,0 +1,11 @@
+# The build context is the project root; keep it to what the image actually needs.
+node_modules
+*/node_modules
+.git
+android
+specs
+web/test
+*.db
+*.db-wal
+*.db-shm
+.github

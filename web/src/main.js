@@ -48,6 +48,12 @@ async function showSignIn() {
   show('signin');
   const mode = signInMode();
   $('web-hint').hidden = mode === 'native';
+  if (mode === 'unconfigured') {
+    $('google-button').hidden = true;
+    $('btn-signin').hidden = true;
+    $('signin-error').textContent = t('home.signInUnconfigured');
+    return;
+  }
   if (mode !== 'web') { $('google-button').hidden = true; $('btn-signin').hidden = false; return; }
   // In a browser Google draws the button itself; ours stays as the fallback if their script cannot load.
   try {

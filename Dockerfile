@@ -1,4 +1,7 @@
-# One image: the API and the three pages it serves. Build context = repository root.
+# One image: the API and the three pages it serves.
+# Built on the JR07 box by `jr07 app up bachelor --port 8080` (build context = this project root).
+# The provisioner injects PORT and mounts a persistent named volume at /data, which is where the database,
+# its write-ahead log and the nightly backups live.
 FROM node:22-slim AS build
 WORKDIR /app/api
 COPY api/package.json api/package-lock.json ./

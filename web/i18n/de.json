@@ -171,5 +171,6 @@
   "partner.disclosure": "Deine Antworten werden auf der Party vorgelesen und den Gästen gezeigt.",
   "premium.webNotice": "Premium kaufst du in der Android-App. Es gehört zu deinem Konto und gilt deshalb auch hier.",
   "home.signInGoogle": "Mit Google anmelden",
-  "home.webHint": "Du kannst das ganze Spiel in diesem Browser leiten."
+  "home.webHint": "Du kannst das ganze Spiel in diesem Browser leiten.",
+  "home.signInUnconfigured": "Die Anmeldung ist auf diesem Server noch nicht eingerichtet. Die Party-Links funktionieren trotzdem."
 }
