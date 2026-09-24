@@ -2,18 +2,24 @@
 
 ## Pending
 
-- **Jacek:** put it live, one command on the box: `ssh jr07@91.98.25.205` then `curl -fsSL https://raw.githubusercontent.com/JaRze07/0003-bachelor-questionnaire/main/deploy/install.sh | bash`. It runs as its own compose project, takes a backup first, adds `bq.91-98-25-205.sslip.io` to Caddy, validates before reloading and never restarts the dashboard or the terminal. I cannot run it from here because this terminal has no access to Docker on the box
-- **Jacek:** a Google sign-in client, so organisers can log in: Google Cloud console → APIs and services → Credentials → Create credentials → OAuth client id → **Web application**, authorised JavaScript origin `https://bq.91-98-25-205.sslip.io`, no redirect URI. Paste the client id here; it goes into `/srv/jr07/bachelor.env` as `BQ_GOOGLE_WEB_CLIENT_ID` and `BQ_GOOGLE_CLIENT_IDS`. Until then nobody can sign in on the box (development sign-in is refused in production on purpose)
-- **Jacek:** do you want a nicer address than `bq.91-98-25-205.sslip.io`? Any domain you own works: point it at 91.98.25.205 and tell me the name
-- **Jacek:** AdMob ad unit ids when you get to them (banner + interstitial); test ads until then
-- **Jacek:** Play Console, once the account exists: app `com.jr07.bachelorquestionnaire`, one-off product `premium_forever` (about €1), and a service-account key saved as `/srv/jr07/secrets/bachelor/play-service-account.json`. Until then buying premium answers "the store could not confirm this yet"
+- **Jacek:** create the Google sign-in client so organisers can log in: Google Cloud console → APIs and services → Credentials → Create credentials → OAuth client id → **Web application**, authorised JavaScript origin `https://bachelor.91-98-25-205.sslip.io`, no redirect URI. Paste the client id here and I redeploy with it. Until then the sign-in screen says sign-in is not set up; the partner and guest links already work
+- **Jacek:** try it on your phone: https://bachelor.91-98-25-205.sslip.io. I have no browser here, so the screens have never been seen by a human eye. Sign-in needs the item above, but the pages, languages and layout can be judged now
+- **Jacek:** do you want a nicer address than `bachelor.91-98-25-205.sslip.io`? Any domain you own works: point it at 91.98.25.205 and tell me the name
+- **Jacek:** AdMob ad unit ids when you get to them (one banner, one interstitial); the app uses test ads until then
+- **Jacek:** Play Console, once the account exists: app `com.jr07.bachelorquestionnaire`, one-off product `premium_forever` (about €1), and a service-account key for purchase checks. Until then buying premium answers "the store could not confirm this yet". I can generate the Android signing key and store it as repo secrets when you say go
 - **Jacek:** "scrap the full old github and recreate it fresh" - do you mean deleting the repo and pushing a fresh one with no history? Irreversible, so not without a clear yes. The safe alternative is rewriting history so the old party files disappear (a force push)
-- **Jacek:** the Google Cloud project `jr07-0003-bachelor` is no longer used for hosting. Keep it only for the OAuth client and later the Play service account, or create those in another project and delete this one: your call
-- iOS after the Apple developer account exists
-- Done 2026-09-19: **own server, web host app, live guest view** (spec `002-hetzner-live-web`, merged). One SQLite database on the JR07 box with real transactions and nightly backups; the organiser runs the game from the Android app or any browser; guests follow the question on the table, the dare, the partner's answer from the moment the organiser reveals it, and the score, refreshed every 2.5 s; Google sign-in exchanged for our own 30-day session; Firebase, Firestore and Cloud Run removed (the API is down to 4 dependencies). 113 tests, Codex review with 9 findings, all fixed
-- Done 2026-09-16: v1 merged: API, host app, partner form, spectator page, offline event journal, AdMob gate, in-app purchase, five languages, Capacitor Android project, CI. Two Codex reviews
-- Done 2026-09-16: the one-party app, its data and the Cloudflare Worker removed (SC-007)
-- Done 2026-09-15: Q1-Q5 answered, spec v3.1, constitution, plan, data model, API contract, 43 tasks
+- **Jacek:** the Google Cloud project `jr07-0003-bachelor` no longer hosts anything. Keep it only for the OAuth client and the later Play service account, or create those elsewhere and delete it: your call
+- iOS after the Apple developer account exists (Capacitor iOS project, Sign in with Apple, App Store purchase checks)
+- Implementation debt, not urgent: cursor pagination for host game lists and exports (`specs/001-bachelor-questionnaire/codex-review-2.md`)
+
+## Done
+
+- **2026-09-24: live on the JR07 box** at https://bachelor.91-98-25-205.sslip.io, published with `jr07 app up` (WORKFLOW §4d) instead of the hand-written compose file and install script. Checked on the box: all three pages over HTTPS, a Polish game created, answered through the partner link, one round played, the guest link showing the question then the answer only after the organiser's reveal, data surviving a container restart, and a development bearer refused with 401. `deploy/README.md` has the deploy command, settings, backups and restore
+- **2026-09-19: own server, web organiser app, live guest view** (spec `002-hetzner-live-web`). One SQLite database with real transactions and nightly backups; the organiser runs the game from the app or any browser; guests see the question on the table, the dare, the partner's answer from the reveal, and the score, refreshed every 2.5 s; Google sign-in exchanged for our own 30-day session; Firebase, Firestore and Cloud Run removed, the API down to four dependencies. Codex review: 9 findings, all fixed
+- **2026-09-16: v1** merged: API, organiser app, partner form, guest page, offline event journal with a device lease, AdMob gate, in-app purchase with a server-side entitlement state machine, retention job, five languages, Capacitor Android project, CI, signed release workflow. Two Codex reviews, real findings fixed
+- **2026-09-16:** the one-party app, its questions and results, the single-file build and the Cloudflare Worker removed; no name from the original party remains in the working tree (SC-007). Answer to "what is this about?" on the old Worker: it was the hand-made live-sync backend, now retired, so no `wrangler login` is needed
+- **2026-09-15:** Q1-Q5 answered by Jacek (store app with in-app premium, ads from day one, five languages, guest link, Claude researches the rules) and folded into spec v3.1 after two Codex critiques; constitution, plan, data model, API contract, quickstart and 43 tasks written
+- **2026-09-15:** Google Cloud project created from the PC, and gcloud added to the terminal. Superseded on 2026-09-19: hosting moved to the box, and the project now only holds the OAuth client
 
 ## Specification
 
