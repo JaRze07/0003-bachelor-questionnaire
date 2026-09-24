@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -20,6 +20,8 @@ function mockFetch() {
 }
 const tick = () => new Promise((resolve) => setTimeout(resolve, 30));
 const text = (id) => document.getElementById(id).textContent;
+
+afterEach(() => { delete globalThis.GOOGLE_CLIENT_ID; });
 
 beforeEach(() => {
   vi.resetModules();
@@ -80,5 +82,30 @@ describe('guest page', () => {
     await tick(); await tick();
     expect(document.getElementById('board').hidden).toBe(true);
     expect(document.getElementById('gone').hidden).toBe(false);
+  });
+});
+
+describe('sign-in safety on a deployed server', () => {
+  it('refuses development sign-in when the server is not localhost', async () => {
+    vi.resetModules();
+    globalThis.GOOGLE_CLIENT_ID = '';
+    const auth = await import('../src/native/auth.js');
+    expect(auth.signInMode('bachelor.91-98-25-205.sslip.io')).toBe('unconfigured');
+    expect(auth.signInMode('localhost')).toBe('dev');
+    const prompt = vi.fn();
+    globalThis.prompt = prompt;
+    expect(await auth.signIn('unconfigured')).toBeNull();
+    expect(await auth.signIn('web')).toBeNull();
+    expect(prompt).not.toHaveBeenCalled();
+  });
+
+  it('drops a development session that this server would reject', async () => {
+    vi.resetModules();
+    globalThis.GOOGLE_CLIENT_ID = '';
+    const { setMeta, meta } = await import('../src/store/idb.js');
+    await setMeta('session', { token: 'dev:someone', uid: 'someone', provider: 'dev', expiresAt: null });
+    const auth = await import('../src/native/auth.js');
+    expect(await auth.currentUser('unconfigured')).toBeNull();
+    expect(await meta('session')).toBeNull();
   });
 });

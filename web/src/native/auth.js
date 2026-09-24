@@ -11,10 +11,13 @@ const plugin = () => globalThis.Capacitor?.Plugins?.SocialLogin ?? null;
 const clientId = () => globalThis.GOOGLE_CLIENT_ID || '';
 const api = () => createApi({});
 
-export async function currentUser() {
+export async function currentUser(mode = signInMode()) {
   const session = await meta('session');
   if (!session) return null;
   if (session.expiresAt && session.expiresAt < new Date().toISOString()) { await setMeta('session', null); return null; }
+  // A development session left over from local work (or from before a server was configured) is not a session
+  // this server will accept: drop it rather than show a signed-in app that cannot do anything.
+  if (String(session.token).startsWith('dev:') && mode !== 'dev') { await setMeta('session', null); return null; }
   return { uid: session.uid, name: session.name, provider: session.provider };
 }
 
@@ -36,21 +39,25 @@ async function exchange(googleIdToken) {
  * 'unconfigured' is a deployed server whose Google client id has not been set yet: sign-in cannot work and the
  * screen says so instead of failing with a generic error.
  */
-export const signInMode = () => {
+export const signInMode = (hostname = location.hostname) => {
   if (plugin() && isNative()) return 'native';
   if (clientId()) return 'web';
-  return location.hostname === 'localhost' || location.hostname === '127.0.0.1' ? 'dev' : 'unconfigured';
+  return hostname === 'localhost' || hostname === '127.0.0.1' ? 'dev' : 'unconfigured';
 };
 
-/** Native and dev sign-in, started by a tap on our own button. */
-export async function signIn() {
-  if (signInMode() === 'native') {
+/**
+ * Native and local-development sign-in, started by a tap on our own button. In a browser talking to a real
+ * server this must do nothing: a `dev:` session would look signed in here and be rejected by every API call.
+ */
+export async function signIn(mode = signInMode()) {
+  if (mode === 'native') {
     const p = plugin();
     await p.initialize({ google: { webClientId: clientId() } });
     const { result } = await p.login({ provider: 'google', options: { scopes: ['profile'] } });
     if (!result?.idToken) throw new Error('no_id_token');
     return exchange(result.idToken);
   }
+  if (mode !== 'dev') return null;
   const uid = globalThis.prompt('Development sign-in: pick a user id', 'dev-host');
   if (!uid) return null;
   const clean = uid.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64) || 'dev-host';

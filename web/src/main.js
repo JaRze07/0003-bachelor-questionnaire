@@ -39,7 +39,8 @@ async function boot() {
     await showSignIn();
   });
 
-  state.user = await currentUser();
+  // A server with no sign-in configured can never accept a session, whatever is cached here.
+  state.user = signInMode() === 'unconfigured' ? null : await currentUser();
   if (!state.user) { await showSignIn(); return; }
   await afterSignIn();
 }
@@ -67,7 +68,13 @@ async function showSignIn() {
 }
 
 async function afterSignIn() {
-  try { await refreshMe(); } catch { /* offline: the cached entitlement is used */ }
+  try {
+    await refreshMe();
+  } catch (err) {
+    // Offline keeps the cached entitlement; a refused session sends the organiser back to sign-in.
+    if (err.status === 401) { await signOut(); state.user = null; await showSignIn(); return; }
+    if (!err.offline) console.warn('could not refresh the account', err);
+  }
   await renderHome();
   show('home');
 }
