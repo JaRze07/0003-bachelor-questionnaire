@@ -1,65 +1,81 @@
 # Running Bachelor Questionnaire on the JR07 box
 
-One container next to the dashboard on the Hetzner CX33. It serves the API under `/v1` and the three pages (host
-app, partner form, guest page) from the same origin. Data is one SQLite file.
+**Live: https://bachelor.91-98-25-205.sslip.io**
 
-```
-/srv/jr07/apps/0003                 checkout of this repo
-/srv/jr07/data/bachelor/bachelor.db the database (WAL)
-/srv/jr07/data/bachelor/backups/    one backup per night, 14 kept; one before every deploy, 5 kept
-/srv/jr07/secrets/bachelor/         play-service-account.json (only when the Play Console exists)
-/srv/jr07/bachelor.env              this app's settings only (600); the dashboard's secrets are never mounted here
-```
+One container, built from the `Dockerfile` in the project root, serving the API under `/v1` and the three pages
+(host app, partner form, guest page) from the same origin. Data is one SQLite file on the container's persistent
+`/data` volume, which survives restarts and rebuilds.
 
-## First install and every update
+## Deploy or update
+
+From a dashboard terminal, after pushing to `main`:
 
 ```bash
-ssh jr07@91.98.25.205
-curl -fsSL https://raw.githubusercontent.com/JaRze07/0003-bachelor-questionnaire/main/deploy/install.sh | bash
+jr07 app up bachelor --port 8080 --dir JR07/0003-bachelor-questionnaire \
+  -e NODE_ENV=production \
+  -e WEB_BASE=https://bachelor.91-98-25-205.sslip.io \
+  -e CORS_ORIGINS=https://bachelor.91-98-25-205.sslip.io,capacitor://localhost,https://localhost \
+  -e PLAY_PACKAGE_NAME=com.jr07.bachelorquestionnaire \
+  -e GOOGLE_WEB_CLIENT_ID=<web client id> \
+  -e GOOGLE_CLIENT_IDS=<web client id>[,<android client id>]
 ```
 
-The script pulls the repo, creates `/srv/jr07/bachelor.env` on the first run, takes an online backup through the
-running container, builds and starts the container, adds the hostname to the dashboard's Caddyfile if it is missing
-(keeping the previous file), validates the Caddyfile before reloading and restores it if validation fails, and checks
-`/healthz` over HTTPS. It runs as its own compose project, `jr07-bachelor`, and never touches the dashboard or
-terminal containers.
+`jr07` rebuilds the image, replaces the container and keeps the `/data` volume. HTTPS and the route are handled by
+the box. Every setting is passed on this command line: there is no env file to keep in sync, and the environment of
+a running app is visible with `docker inspect` on the box only.
 
-## Settings in `/srv/jr07/bachelor.env`
-
-| Name | Meaning |
+| Setting | Meaning |
 |---|---|
-| `BQ_GOOGLE_WEB_CLIENT_ID` | OAuth client id (type **Web application**) used by the sign-in button in the browser |
-| `BQ_GOOGLE_CLIENT_IDS` | every client id whose tokens the API accepts, comma separated: the web one and, later, the Android one |
-| `BQ_PUBLIC_URL` | `https://<hostname>`, written by the install script |
-| `BQ_AD_UNIT_BANNER`, `BQ_AD_UNIT_INTERSTITIAL` | AdMob ids, empty = test ads in the app |
-| `JR07_NETWORK` (optional) | the dashboard project's network, default `deploy_default` |
-| `BQ_HOST` (shell, optional) | hostname for the first run, default `bq.91-98-25-205.sslip.io` |
+| `GOOGLE_WEB_CLIENT_ID` | OAuth client id (type **Web application**) used by the sign-in button in the browser |
+| `GOOGLE_CLIENT_IDS` | every client id whose tokens the API accepts: the web one and, later, the Android one |
+| `AD_UNIT_BANNER`, `AD_UNIT_INTERSTITIAL` | AdMob ids; empty means test ads |
+| `PORT`, `DB_PATH`, `BACKUP_DIR` | set by the image and the provisioner; do not override |
 
-Purchases are verified for real on the box: fake verification and development sign-in make the container refuse to
-start. Until `play-service-account.json` exists, a purchase attempt answers "the store could not confirm this yet".
+**Sign-in needs the OAuth client.** Create it in the Google Cloud console: APIs and services, Credentials, Create
+credentials, OAuth client id, Web application. Authorised JavaScript origin `https://bachelor.91-98-25-205.sslip.io`,
+no redirect URI. Until it is passed, the sign-in screen says so plainly and the party links still work.
 
-Create the OAuth client in the Google Cloud console: APIs and services, Credentials, Create credentials, OAuth client
-id, Web application. Authorised JavaScript origin: `https://bq.91-98-25-205.sslip.io`. No redirect URI is needed.
-Until the id is set the sign-in screen cannot work on the box (development sign-in is off in production).
+**Production refuses to cheat.** With `NODE_ENV=production` the container exits at startup if `DEV_AUTH=1` or
+`PLAY_FAKE=1` is set, so a deployed instance can never accept development sign-in or invented purchase tokens.
 
 ## Operate
 
 ```bash
-cd /srv/jr07/apps/0003/deploy
-alias bq='docker compose --env-file /srv/jr07/bachelor.env'
-bq logs -f bachelor-api                       # live log: one line per housekeeping run and per backup
-bq restart bachelor-api
-bq exec bachelor-api node dist/backup.js /data/backups/manual-$(date +%F).db
-ls -lh /srv/jr07/data/bachelor/backups
+jr07 app ls
+jr07 app logs bachelor --lines 100     # one line per housekeeping run and per backup
+jr07 app restart bachelor
+jr07 app down bachelor                 # stops and unpublishes; the data volume is kept
 ```
 
-Restore: stop the container, copy a backup over `bachelor.db`, delete `bachelor.db-wal` and `bachelor.db-shm`, start
-it again. Verified on 2026-09-19: a backup taken from a running server came up in a fresh one with the same games,
-links and score.
+## Backups and restore
+
+The container writes an online backup to `/data/backups` every 24 hours and keeps 14. To take one now, or to
+restore:
+
+```bash
+# on the box
+docker exec app-bachelor node dist/backup.js /data/backups/manual-$(date +%F).db
+docker cp app-bachelor:/data/backups/manual-$(date +%F).db .     # copy it off the box
+
+# restore: stop, replace, start
+docker stop app-bachelor
+docker run --rm -v app-bachelor-data:/data -v "$PWD":/in alpine \
+  sh -c 'cp /in/<backup>.db /data/bachelor.db && rm -f /data/bachelor.db-wal /data/bachelor.db-shm'
+docker start app-bachelor
+```
+
+Verified on 2026-09-19 locally and on 2026-09-24 on the box: a backup taken from a running server comes up in a
+fresh one with the same games, links and score.
+
+## Checked after the first deploy (2026-09-24)
+
+Host, partner and guest pages load over HTTPS; a Polish game was created, answered through the partner link, played
+one round, and the guest link showed the question, then the answer only after the organiser's reveal, then the
+score; a container restart kept everything; a development bearer and an unknown session are refused with 401, and
+sign-in without a configured client answers `google_not_configured`.
 
 ## What this replaced
 
-Cloud Run, Firestore, Firebase Auth, Firebase Hosting, Cloud Scheduler and the Pub/Sub push subscription. Google is
-still used for two things: sign-in (an OAuth client, free) and Play purchase verification (a service account).
-The Google Cloud project `jr07-0003-bachelor` can be reduced to just that, or deleted once the OAuth client lives
-in another project.
+Cloud Run, Firestore, Firebase Auth, Firebase Hosting, Cloud Scheduler and the Pub/Sub subscription, and then the
+hand-written compose file and install script that preceded `jr07`. Google is now used for sign-in (an OAuth client,
+free) and Play purchase verification only.

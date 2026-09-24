@@ -77,10 +77,10 @@ Everything not mentioned here stays as specified there.
 
 | Layer | Choice |
 |---|---|
-| Box | JR07 server, Hetzner CX33 Nuremberg, behind the existing Caddy (TLS, one certificate) |
-| API | the same Hono service, one container, Node 22 |
+| Box | JR07 server, Hetzner CX33 Nuremberg. Published with `jr07 app up` (WORKFLOW §4d): the provisioner builds the Dockerfile, runs the container in a fixed safe shape and routes `https://bachelor.91-98-25-205.sslip.io` to it |
+| API | the same Hono service, one container, Node 22, on the provisioner's persistent `/data` volume |
 | Storage | **SQLite** (WAL) in one file on the box, through the existing repository interface; every mutating request runs in **one transaction**, serialised in-process |
-| Static pages | host app, partner form and guest page served by Caddy from the same origin as the API (`/v1/*` proxied), so no cross-origin setup |
+| Static pages | the same container serves them, so the pages and the API share one origin and need no cross-origin setup |
 | Backups | nightly online backup of the database file, 14 copies kept, plus a copy before every deploy |
 | Play verification | Google Play Developer API with a service-account key from the box's secret file |
 | Removed | Cloud Run, Firestore, Firebase Auth, Firebase Hosting, Cloud Scheduler, Pub/Sub push (purchase notifications use a pull on a timer, retention runs on a timer inside the API) |
@@ -106,8 +106,8 @@ playing offline and syncs later.
 
 ---
 
-## 7. Waiting on Jacek
+## 7. Status
 
-1. A Google **OAuth client id** (type Web) with the site's origin, for sign-in. Development sign-in works meanwhile.
-2. The hostname for the app on the box (default: `bq.91-98-25-205.sslip.io`).
-3. Three commands on the box to start the container (`deploy/README.md`).
+Deployed 2026-09-24 at **https://bachelor.91-98-25-205.sslip.io** and checked end to end there
+(`deploy/README.md`). Open: the Google **OAuth client id** (type Web) for the site's origin. Until it is passed,
+nobody can sign in as an organiser; the sign-in screen says so and the partner and guest links work normally.

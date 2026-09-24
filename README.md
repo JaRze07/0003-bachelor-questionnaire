@@ -24,7 +24,8 @@ Full specification: `specs/001-bachelor-questionnaire/spec.md`. Project rules: `
 | `web/src/native/` | Capacitor bridges (auth, ads, purchases, device) with browser fallbacks. |
 | `web/curated/`, `web/i18n/` | Curated question banks and UI catalogues per language. |
 | `api/` | The API (Hono, Node 22) with a SQLite store: games, questions, partner answers, event upload, the guests' live projection, sign-in sessions, purchases, retention and backups. In production it also serves `web/`. |
-| `deploy/` | Dockerfile, compose file and install script for the JR07 box (Hetzner). |
+| `Dockerfile` | The image built by `jr07 app up`: API plus pages, database on the `/data` volume. |
+| `deploy/` | How it runs on the JR07 box: the deploy command, settings, backups and restore. |
 | `android/` | Capacitor Android project (created by `npx cap add android`). |
 | `specs/001-bachelor-questionnaire/` | Spec, plan, data model, API contract, quickstart, tasks, Codex reviews. |
 
@@ -55,14 +56,14 @@ CI runs all three on every push (`.github/workflows/ci.yml`). The manual checkli
 
 ## Deploy
 
-Everything runs in one container on the JR07 box, behind the dashboard's Caddy:
+**Live: https://bachelor.91-98-25-205.sslip.io** (JR07 box). One container serving the API and the pages, with the
+database on a persistent volume:
 
 ```bash
-ssh jr07@91.98.25.205
-curl -fsSL https://raw.githubusercontent.com/JaRze07/0003-bachelor-questionnaire/main/deploy/install.sh | bash
+jr07 app up bachelor --port 8080 --dir JR07/0003-bachelor-questionnaire -e NODE_ENV=production ...
 ```
 
-Details, settings, backups and restore: `deploy/README.md`.
+Full command, settings, backups and restore: `deploy/README.md`.
 
 Android: push a `v*` tag and `.github/workflows/android-release.yml` builds a signed APK and AAB and attaches them
 to the GitHub Release. Repo secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`,
