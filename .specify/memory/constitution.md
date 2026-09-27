@@ -55,10 +55,12 @@ by the checklist. Rationale: small surface, real consequences at the party.
 ## Technology and Security Constraints
 
 - Client: HTML/CSS/JS, phone-first, dark high-contrast; Capacitor app for the host (Android
-  first, iOS second); partner form and spectator page as static web pages on Firebase Hosting.
-- API: Cloud Run (Node), scale to zero, max 2 instances; storage Firestore; auth Firebase
-  Authentication (Google, Apple). Google Cloud project `jr07-0003-bachelor-questionnaire` under
-  the workspace budget cap and kill switch. Cloudflare is retired.
+  first, iOS second); partner form and spectator page served by the API as static pages.
+- API: Node (Hono) on the **JR07 box**, one container published with `jr07 app up bachelor`
+  (https://bachelor.91-98-25-205.sslip.io), SQLite in its `/data` volume with nightly backups;
+  sign-in by verifying Google (and later Apple) ID tokens in the API itself, no Firebase. **No Google
+  Cloud**: the project `jr07-0003-bachelor` was deleted on 2026-09-27; Cloud Run, Firestore, Firebase
+  Auth/Hosting, Cloud Scheduler and Pub/Sub are out. Cloudflare is retired.
 - Ads: AdMob with UMP consent. Payments: Play Billing / StoreKit, entitlement verified server-side;
   edge cases in spec FR-036 MUST be handled.
 - Languages: en, de, es, pt, pl at launch; every user-facing string goes through the message
@@ -87,4 +89,4 @@ a version bump (MAJOR: principle removed or redefined; MINOR: principle or secti
 materially expanded; PATCH: wording), and noted in `STATUS.md`. Every plan and review MUST check
 compliance with Principles I–VI; deviations are justified in the plan's Complexity Tracking table.
 
-**Version**: 3.0.0 | **Ratified**: 2026-09-14 | **Last Amended**: 2026-09-19 (II: guests see answers once revealed, partner is told; V: own server with SQLite instead of Google Cloud)
+**Version**: 3.1.0 | **Ratified**: 2026-09-14 | **Last Amended**: 2026-09-27 (II: guests see answers once revealed, partner is told; V: own server with SQLite instead of Google Cloud)
