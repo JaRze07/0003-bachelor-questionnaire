@@ -37,6 +37,19 @@ This app is hosted on the **JR07 box**, not on Google Cloud. From the terminal:
 `https://<name>.91-98-25-205.sslip.io` with HTTPS handled for you. `jr07 --help` lists everything.
 Never use `gcloud` to host: it is not logged in there, and new apps do not get Google Cloud projects (see
 `../WORKFLOW.md` section 4d).
+## Browser setup: the Claude extension does the clicking
+
+Anything that lives behind a web console (AdMob, Play Console, Google Cloud OAuth clients, Hetzner console,
+Cloudflare, store listings, sign-ups, account settings) is set up through the **Claude browser extension** in
+Jacek's browser, never by hand from memory and never by the terminal guessing. The terminal's job is a
+**paste-ready brief** in one code block: numbered steps, exact URLs (Google consoles with `authuser=2`, that is
+jacekrzepny3@gmail.com), exact names and values to enter, and what to report back. Jacek pastes it to the
+extension and pastes the report back into the terminal; the terminal then continues (verifies, records in
+STATUS/spec, connects the dashboard).
+Two limits, learned 2026-09-27: the extension **refuses to type credentials or secrets into any page**, and refuses
+to change sign-in (OAuth) settings that point at our server. Write those few steps as a separate, minimal list for
+Jacek to do himself, with the secret going straight from the console into the dashboard or `.env`, never through
+chat. Reading a page and reporting what it shows is always allowed, so use the extension to verify results too.
 ## Security rules
 - Core toolkits only: Claude Code, Codex CLI, spec-kit. **No third-party plugins, MCP servers, agent skills,
   spec-kit extensions or presets.** If a task seems to need one, propose it and wait for Jacek.
