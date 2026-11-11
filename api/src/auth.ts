@@ -66,20 +66,22 @@ export function ownedGame(repo: Repo): MiddlewareHandler<{ Variables: Vars }> {
 
 export function gameTokenAuth(repo: Repo, role: TokenRole): MiddlewareHandler<{ Variables: Vars }> {
   return async (c, next) => {
-    // Caller bucket first, so an unknown token cannot buy unlimited lookups by varying itself.
-    rateLimit(`ip:${clientIp(c)}`, 240, 60);
+    // Only requests without a working link are charged to the caller's address, so a made-up token cannot buy
+    // unlimited tries by varying itself. Good requests are not: a party shares one address (the venue's Wi-Fi,
+    // a carrier's NAT), and a per-address budget would throttle the whole room after about ten guests.
+    const unavailable = () => { rateLimit(`miss:${clientIp(c)}`, 240, 60); return notFound('link_unavailable'); };
     const token = c.req.header('x-game-token');
-    if (!token || token.length < 20 || token.length > 128) throw notFound('link_unavailable');
+    if (!token || token.length < 20 || token.length > 128) throw unavailable();
     const hash = hashToken(token);
-    // A whole room shares one guest link and polls every 2.5 s, so the per-link budget has to fit a party
-    // (100 guests), while the caller bucket above keeps a single device honest.
-    rateLimit(`${role}:${hash}`, role === 'partner' ? 120 : 3000, 60);
     const doc = await repo.tokens.get(hash);
-    if (!doc || doc.role !== role) throw notFound('link_unavailable');
+    if (!doc || doc.role !== role) throw unavailable();
+    // A whole room shares one guest link and polls every 2.5 s, so the per-link budget has to fit a party
+    // (100 guests); the partner's form is one person typing.
+    rateLimit(`${role}:${hash}`, role === 'partner' ? 120 : 3000, 60);
     const game = await repo.games.get(doc.gameId);
     if (!game) throw gone();
     const state = game.tokens[role];
-    if (state.hash !== hash || state.version !== doc.version || state.revokedAt) throw notFound('link_unavailable');
+    if (state.hash !== hash || state.version !== doc.version || state.revokedAt) throw unavailable();
     c.set('game', game);
     c.set('tokenRole', role);
     await next();

@@ -86,6 +86,36 @@ describe('live guest view', () => {
   });
 });
 
+describe('a room full of guests on one network', () => {
+  const from = (ip: string) => ({ headers: { 'X-Forwarded-For': ip } });
+
+  it('is not throttled by address: every guest behind the venue Wi-Fi keeps polling', async () => {
+    const h = harness();
+    const g = await seedGame(h); await start(h, g);
+    // 30 guests polling every 2.5 s for half a minute, all seen from one address
+    const statuses = new Set<number>();
+    for (let i = 0; i < 360; i++) statuses.add((await h.token('/s/summary', g.spectator, from('203.0.113.7'))).status);
+    expect([...statuses]).toEqual([200]);
+    // and the partner, on the same network, can still save
+    const q = g.questions[0];
+    const save = await h.token(`/p/answers/${q.id}`, g.partner, { method: 'PUT', json: { text: 'x', questionRev: 1, baseRev: 1 }, ...from('203.0.113.7') });
+    expect(save.status).toBe(200);
+  });
+
+  it('still limits guessing: made-up links are charged to the address that tries them', async () => {
+    const h = harness();
+    const g = await seedGame(h);
+    const guess = (i: number) => h.token('/s/summary', `not-a-real-link-${String(i).padStart(8, '0')}`, from('198.51.100.9'));
+    for (let i = 0; i < 240; i++) expect((await guess(i)).status).toBe(404);
+    const limited = await guess(999);
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get('retry-after')).toBeTruthy();
+    // a guest with the real link on that address is not locked out with them, and other addresses are untouched
+    expect((await h.token('/s/summary', g.spectator, from('198.51.100.9'))).status).toBe(200);
+    expect((await h.token('/s/summary', 'not-a-real-link-00000000', from('192.0.2.1'))).status).toBe(404);
+  });
+});
+
 describe('hidden questions', () => {
   it('cannot be started, so their answers can never reach the guest page', async () => {
     const h = harness();
