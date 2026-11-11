@@ -21,19 +21,31 @@ jr07 app up bachelor --port 8080 --dir JR07/0003-bachelor-questionnaire \
 ```
 
 `jr07` rebuilds the image, replaces the container and keeps the `/data` volume. HTTPS and the route are handled by
-the box. Every setting is passed on this command line: there is no env file to keep in sync, and the environment of
+the box. The old container is removed outright, so take a manual backup first (below) if the deploy is anything
+more than routine; requests in flight at that moment fail and the apps retry. Every setting is passed on this command line: there is no env file to keep in sync, and the environment of
 a running app is visible with `docker inspect` on the box only.
 
 | Setting | Meaning |
 |---|---|
 | `GOOGLE_WEB_CLIENT_ID` | OAuth client id (type **Web application**) used by the sign-in button in the browser |
 | `GOOGLE_CLIENT_IDS` | every client id whose tokens the API accepts: the web one and, later, the Android one |
+| `WEB_BASE` | the public address; the partner and guest links the API hands out start with it |
+| `CORS_ORIGINS` | origins allowed to call the API: the site itself and the two origins the Android app uses |
+| `PLAY_PACKAGE_NAME` | the Android app id, for purchase checks |
 | `AD_UNIT_BANNER`, `AD_UNIT_INTERSTITIAL` | AdMob ids; empty means test ads |
-| `PORT`, `DB_PATH`, `BACKUP_DIR` | set by the image and the provisioner; do not override |
+| `PORT`, `DB_PATH`, `BACKUP_DIR`, `WEB_DIR` | set by the image and the provisioner; do not override |
+| `BACKUP_KEEP`, `HOUSEKEEPING` | optional: how many daily backups to keep (14), and `off` to stop the timers |
 
-**Sign-in needs the OAuth client.** Create it in the Google Cloud console: APIs and services, Credentials, Create
-credentials, OAuth client id, Web application. Authorised JavaScript origin `https://bachelor.91-98-25-205.sslip.io`,
-no redirect URI. Until it is passed, the sign-in screen says so plainly and the party links still work.
+**Sign-in needs the OAuth client.** Create it in the Google Cloud console, project `jr07-0000-dashboard` (the only
+one the workspace keeps; this app has no project of its own): APIs and services, Credentials, Create credentials,
+OAuth client id, Web application. Authorised JavaScript origin `https://bachelor.91-98-25-205.sslip.io`, no redirect
+URI. Until it is passed, the sign-in screen says so plainly and the party links still work.
+
+**Purchases need a Play credential, and there is none yet.** The API checks a purchase with the Play Developer API
+through Google's application-default credentials. The container has no such credential (and no host mounts to
+carry a key file), so every check answers `verification_unavailable`. How the server will authenticate to Play is
+an open item in `STATUS.md`; so is how refunds reach it (the notification route in the code is a Pub/Sub push, and
+nothing delivers to it).
 
 **Production refuses to cheat.** With `NODE_ENV=production` the container exits at startup if `DEV_AUTH=1` or
 `PLAY_FAKE=1` is set, so a deployed instance can never accept development sign-in or invented purchase tokens.
@@ -49,8 +61,9 @@ jr07 app down bachelor                 # stops and unpublishes; the data volume 
 
 ## Backups and restore
 
-The container writes an online backup to `/data/backups` every 24 hours and keeps 14. To take one now, or to
-restore:
+The container writes an online backup to `/data/backups` a minute after it starts and then every 24 hours, and
+keeps 14. They live on the same volume as the database: they protect against a bad deploy or a damaged file, not
+against losing the box, so copy one off now and then. To take one now, or to restore:
 
 ```bash
 # on the box
@@ -73,9 +86,3 @@ Host, partner and guest pages load over HTTPS; a Polish game was created, answer
 one round, and the guest link showed the question, then the answer only after the organiser's reveal, then the
 score; a container restart kept everything; a development bearer and an unknown session are refused with 401, and
 sign-in without a configured client answers `google_not_configured`.
-
-## What this replaced
-
-Cloud Run, Firestore, Firebase Auth, Firebase Hosting, Cloud Scheduler and the Pub/Sub subscription, and then the
-hand-written compose file and install script that preceded `jr07`. Google is now used for sign-in (an OAuth client,
-free) and Play purchase verification only.

@@ -8,11 +8,25 @@
 - **Jacek:** AdMob ad unit ids: the AdMob account is connected to the dashboard (publisher `pub-9929077265418734`, MA rating, blocking set 2026-09-27). Google's API refuses to create ad units for small publishers, so the two test units (banner + interstitial) are created on the AdMob test app `0003-test` in the console; the dashboard's Finance → AdMob panel then shows their IDs (`ca-app-pub-9929077265418734/…`) and the answer here is those two IDs plus the app ID `ca-app-pub-9929077265418734~5081639504`. Decision: test with `0003-test`, a proper "Bachelor Questionnaire" AdMob app at MVP time. Test ads until then
 - **Jacek:** Play Console, once the account exists: app `com.jr07.bachelorquestionnaire`, one-off product `premium_forever` (about €1), and, for purchase checks, a Play Developer API link: the organisation forbids service-account keys, so we use Play Console → API access → link a Google Cloud project (`jr07-0000-dashboard`) and grant the API to a service account there; the API then signs in with Workload Identity or, simplest, Jacek pastes a short-lived token when needed - I will propose the exact path once the Console exists. Until then buying premium answers "the store could not confirm this yet". I can generate the Android signing key and store it as repo secrets when you say go
 - **Jacek:** "scrap the full old github and recreate it fresh" - do you mean deleting the repo and pushing a fresh one with no history? Irreversible, so not without a clear yes. The safe alternative is rewriting history so the old party files disappear (a force push)
-- Purge Google Cloud from the feature docs: `specs/001-bachelor-questionnaire/{spec,plan,tasks}.md` still describe Cloud Run, Firestore, Firebase Auth/Hosting and Cloud Scheduler (28 mentions); rewrite those passages to what runs today (Node + SQLite container on the box via `jr07`, ID-token sign-in in the API, nightly backups) and drop the Google Cloud decommissioning paragraph from `deploy/README.md`; the project is gone (2026-09-27)
 - iOS after the Apple developer account exists (Capacitor iOS project, Sign in with Apple, App Store purchase checks)
 - Implementation debt, not urgent: cursor pagination for host game lists and exports (`specs/001-bachelor-questionnaire/codex-review-2.md`)
+- Purchases cannot be verified or refunded yet, whatever the Play Console holds. Two things are missing on the server: a credential for the Play Developer API (the code uses Google application-default credentials; the container has none, so every check answers "the store could not confirm this yet"), and a way to hear about refunds (the route in the code is a Pub/Sub push that nothing delivers to; spec 002 named a pull on a timer, which was not built). To design together with the Play Console item above; until then a refund would only be noticed when that purchase is verified again
+- The purchase screen has never run on a phone. Its bridge to the store plugin was wrong and is fixed against the plugin's documented results (Done, 2026-11-11), with unit tests only: buy and restore need one real pass on a device once the Play product exists
+- Features the task list calls done that the code does not have (`specs/001-bachelor-questionnaire/tasks.md`, "Audit"): the share summary as an image, the switch to leave guest names out of an export, the "n new questions" notice for the organiser, adding a question while offline, an export of actions that could not be sent, server snapshots sent by the app, the 24-hour entitlement refresh, and the simulated-reload part of the readiness check. None blocks a party
+- **Jacek:** the Android app lets the system back up its data (`android:allowBackup="true"`), which includes the sign-in session and the party links stored on the phone. Fine for most apps; say if you would rather switch it off before the first store release
 
 ## Done
+
+- **2026-11-11: review of the whole project** (code read end to end; tests before: 51 client, 64 API; after: 65 and 71, type-check clean). Not deployed: the fixes reach the live site with the next `jr07 app up bachelor`
+  - A slow upload no longer blocks everyone else: request bodies are read before the database's single writer is taken, and bodies over 2 MiB are refused
+  - A party is no longer throttled by its shared address: guests and the partner on one Wi-Fi were limited together to about ten guests' worth of polling; now only requests without a working link count against an address
+  - The question and answer an organiser's phone freezes offline are checked (text, 300 and 500 characters) before they reach the guests' page
+  - The retention job can no longer undo a takeover or a new link made while it runs, and the 90-day warning goes away once the organiser is active again
+  - The server stops cleanly when the container is stopped, and sends HSTS
+  - Buying premium could never have worked: the app read the store plugin's results in the wrong shape and would have sent the order number instead of the purchase token. Fixed against the plugin's definitions; not yet tried on a phone (Pending)
+  - A second account on one phone or browser no longer sees the first one's cached games offline or starts with its premium; a server that is down now counts as offline, so the app still opens and keeps what it had queued; the dashed "ad" box no longer shows on the live web version
+  - Removed: the Cloud Run Dockerfile, the Cloud Scheduler endpoint, unused database statements, comments about Google Cloud
+- **2026-11-11:** Google Cloud purged from the feature docs: `specs/001-bachelor-questionnaire/{spec,plan,tasks}.md`, the API contract, the data model and the quickstart now describe what runs (one Node container with SQLite on the box, Google sign-in exchanged for our own session, timers for retention and backups), each passage checked against the code and `deploy/`; the decommissioning paragraph is gone from `deploy/README.md`. Where the code does less than the spec, the spec says so ("As built")
 
 - **Jacek:** the Google Cloud project `jr07-0003-bachelor` no longer hosts anything. Keep it only for the OAuth client and the later Play service account, or create those elsewhere and delete it: your call
   - Resolved (2026-09-27): deleted (30-day recovery window). Nothing of this app lives on Google Cloud; the OAuth client for organiser sign-in goes into `jr07-0000-dashboard`, the one project that stays (it holds the dashboard's own client and the budget kill switch)
@@ -35,12 +49,17 @@ browser. Free tier: 20 curated
 questions in English, German, Spanish, Portuguese and Polish, banner ads plus at most one interstitial per hour.
 Premium (in-app purchase, about €1, forever): up to 100 custom questions, penalty schemes, strike back and
 double-or-nothing rules, no ads. Backend: one container with a SQLite database on the JR07 server (Hetzner); Google is used only for
-sign-in and Play purchase verification. The full feature specification (v3.1, after two Codex critiques) follows this overview. The implementation lives on branch `001-bachelor-questionnaire`: `api/` (Cloud Run + Firestore), `web/` (host app, partner form, spectator page), `android/` (Capacitor, to be generated on a machine with the Android SDK).
+sign-in, ads and Play purchase verification.
 
-Project principles: `.specify/memory/constitution.md` v2.0.0 (spec first; minimal identity and privacy by
-design; local-first offline play; free tier with light ads; one web codebase + Capacitor + Google Cloud, pinned
-tooling; verifiable quality bar).
+Specifications: `specs/001-bachelor-questionnaire/spec.md` (the game, v3.1 after two Codex critiques) and
+`specs/002-hetzner-live-web/spec.md` (own server, web organiser app, live guest view), which amends it. Both are
+implemented and on `main`: `api/` (Node + Hono + SQLite), `web/` (host app, partner form, guest page), `android/`
+(Capacitor project, built and signed by GitHub Actions on a `v*` tag). Deploying is `jr07 app up bachelor`, see
+`deploy/README.md`.
 
-What exists today is a hand-built version for one party (static GitHub Pages app, optional Cloudflare Worker
-saving results). It stays the technical baseline; its hardcoded names and seed rounds are removed as part of the
-generalisation. Setup details: `README.md` in this repo.
+Project principles: `.specify/memory/constitution.md` v3.1.0 (spec first; minimal identity and privacy by
+design; local-first offline play; free tier with light ads; one web codebase + Capacitor + one container on our own
+server, pinned tooling; verifiable quality bar).
+
+The hand-built version for one party that this grew out of (a static GitHub Pages app with an optional Cloudflare
+Worker) was removed on 2026-09-16; nothing of it remains in the working tree. Setup details: `README.md`.

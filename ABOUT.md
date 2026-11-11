@@ -19,7 +19,8 @@ premium rules (strike back, double or nothing) and up to 100 custom questions; a
 over, and the first one cannot then contradict it.
 
 **Status:** live at https://bachelor.91-98-25-205.sslip.io. Organiser sign-in waits on a Google OAuth client id;
-the partner and guest links work today. Android build ready in CI, not yet on the Play Store.
+the partner and guest links work today. Android build ready in CI, not yet on the Play Store; buying premium waits
+on the Play Console and a Play API credential.
 
 **Run it locally:**
 
@@ -29,7 +30,8 @@ DEV_AUTH=1 npm --prefix api run dev     # API on :8080
 npm run web                             # pages on :5173
 ```
 
-**Tests:** `npm test` (49, client) and `npm --prefix api test` (64, API, against SQLite and the in-memory store).
+**Tests:** `npm test` (65, client) and `npm --prefix api test` (71, API, against SQLite; `TEST_REPO=memory` for the
+in-memory store).
 
 **Specs:** `specs/001-bachelor-questionnaire/` (the game) and `specs/002-hetzner-live-web/` (own server, web
 organiser app, live guest view). Rules of the workspace: `../WORKFLOW.md`.

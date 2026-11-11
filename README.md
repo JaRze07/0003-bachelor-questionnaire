@@ -12,22 +12,25 @@ Free: 20 curated questions in English, German, Spanish, Portuguese and Polish, b
 interstitial per hour of use. Premium (one-off in-app purchase, about €1): up to 100 custom questions, penalty
 schemes, strike back and double-or-nothing, no ads.
 
-Full specification: `specs/001-bachelor-questionnaire/spec.md`. Project rules: `CLAUDE.md`, `../WORKFLOW.md`.
+Specifications: `specs/001-bachelor-questionnaire/spec.md` (the game) and `specs/002-hetzner-live-web/spec.md` (own
+server, web organiser app, live guest view). Project rules: `CLAUDE.md`, `../WORKFLOW.md`.
 
 ## Layout
 
 | Path | What it is |
 | --- | --- |
-| `web/` | One codebase for three surfaces: the host app (`index.html`), the partner form (`partner.html`) and the spectator page (`spectator.html`). Capacitor wraps this folder; Firebase Hosting serves it. |
+| `web/` | One codebase for three surfaces: the host app (`index.html`), the partner form (`partner.html`) and the spectator page (`spectator.html`). Capacitor wraps this folder for the Android app; the API container serves it to browsers. |
 | `web/src/logic/` | Pure game logic: queue, scoring, penalties, extra rules, ad gate. Unit-tested. |
 | `web/src/store/` | IndexedDB wrapper, append-only event journal, sync with the lease epoch. |
+| `web/src/host/` | The organiser's screens: game state, round flow, editors, readiness check. |
 | `web/src/native/` | Capacitor bridges (auth, ads, purchases, device) with browser fallbacks. |
 | `web/curated/`, `web/i18n/` | Curated question banks and UI catalogues per language. |
-| `api/` | The API (Hono, Node 22) with a SQLite store: games, questions, partner answers, event upload, the guests' live projection, sign-in sessions, purchases, retention and backups. In production it also serves `web/`. |
+| `api/` | The API (Hono, Node 22) with a SQLite store: games, questions, partner answers, event upload, the guests' live projection, sign-in sessions, purchases, retention and backups. In production it also serves `web/`. `api/curated/` is a copy of `web/curated/` for local runs (`npm run sync-curated`). |
 | `Dockerfile` | The image built by `jr07 app up`: API plus pages, database on the `/data` volume. |
 | `deploy/` | How it runs on the JR07 box: the deploy command, settings, backups and restore. |
 | `android/` | Capacitor Android project (created by `npx cap add android`). |
 | `specs/001-bachelor-questionnaire/` | Spec, plan, data model, API contract, quickstart, tasks, Codex reviews. |
+| `specs/002-hetzner-live-web/` | The move to the JR07 box, the web organiser app and the live guest view. |
 
 ## Run it locally
 
@@ -40,14 +43,15 @@ npm run web                                        # web/ on :5173
 ```
 
 With `DEV_AUTH=1` the API accepts `Authorization: Bearer dev:<uid>`, so the host app signs in with a prompt
-instead of Firebase, ads render as a placeholder box and "buy premium" grants the entitlement locally. Open
+instead of Google, ads render as a placeholder box and "buy premium" grants the entitlement locally. The server
+refuses to start with `DEV_AUTH=1` when `NODE_ENV=production`. Open
 `http://localhost:5173/` for the host app; the partner and spectator links it shows work in another tab.
 
 ## Tests
 
 ```bash
-npm test                  # pure client logic (vitest + fake-indexeddb)
-npm --prefix api test     # API against SQLite (TEST_REPO=memory for the in-memory store)
+npm test                  # client: game logic, journal and sync, API client, purchase and ad bridges, guest page (65)
+npm --prefix api test     # API against SQLite (71); TEST_REPO=memory runs the same suite on the in-memory store
 npm --prefix api run typecheck
 ```
 
@@ -72,7 +76,8 @@ to the GitHub Release. Repo secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTOR
 ## Still to set up (Jacek)
 
 - A Google OAuth client id (Web application) for sign-in, see `deploy/README.md`.
-- Google Play Console account, then the app listing and the `premium_forever` product.
+- Google Play Console account, then the app listing and the `premium_forever` product, and a way for the server
+  to call the Play Developer API (no credential is configured, so purchases cannot be verified yet).
 - AdMob: add the app, create one banner and one interstitial unit, put the ids in the repo variables.
 - Apple developer account and a Mac (or a hosted Mac) for the iOS build.
 

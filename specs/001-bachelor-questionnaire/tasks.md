@@ -2,6 +2,11 @@
 
 **Status**: complete. All 43 tasks done, reviewed twice by Codex and merged to `main` on 2026-09-16.
 
+**Revised 2026-11-11**: seven tasks were written for Google Cloud (T002, T005, T010, T011, T050, T070, T074). Their
+text now names what replaced that work when spec `002-hetzner-live-web` moved the app to the JR07 box, so the list
+matches the repo. A code audit on the same day found a few tasks whose text promises more than the code does; they
+are listed under "Audit" at the end instead of being silently left as done.
+
 **Input**: `spec.md` v3.1, `plan.md`, `data-model.md`, `contracts/api.md`, `quickstart.md`
 **Branch**: `001-bachelor-questionnaire` (code); docs (spec, STATUS, README) are kept current on the same branch and land on `main` at merge
 
@@ -12,17 +17,17 @@
 ## Phase 1: Setup
 
 - [x] T001 Root `package.json` (private, `"type": "module"`), scripts `test`, `web` (static server), `cap:*`; pin Capacitor 8 core/cli/android; `.gitignore` for node_modules, android generated assets, `.env*`, keystores
-- [x] T002 [P] `api/` skeleton: `package.json` (hono 4.13.7, @hono/node-server 2.1.1, @google-cloud/firestore 9.1.0, firebase-admin, zod 4.6.4, googleapis; dev: typescript 5.9.3, tsx, vitest 5), `tsconfig.json`, `Dockerfile` (node:22-slim), `src/index.ts` with `/healthz`
+- [x] T002 [P] `api/` skeleton: `package.json` (hono 4.13.7, @hono/node-server 2.1.1, zod 4.6.4, google-auth-library 11.1.0; dev: typescript 5.9.3, tsx, vitest 5), `tsconfig.json`, `src/app.ts` + `src/server.ts` with `/healthz`. *(Originally with the Firestore and Firebase SDKs and an API-only `Dockerfile`; 002 removed them, and the image is now the root `Dockerfile`.)*
 - [x] T003 [P] `web/` skeleton: `index.html`, `partner.html`, `spectator.html`, `styles.css` (ported from the current dark theme), `src/main.js`, `src/partner.js`, `src/spectator.js`, `web/test/` with vitest + fake-indexeddb + jsdom
 - [x] T004 [P] `.github/workflows/ci.yml`: node 22, `npm ci` root + api, `npm test` both, on push and PR
-- [x] T005 [P] `firebase.json` (hosting public `web`, headers for partner/spectator: no-referrer, no-store, CSP) and `.firebaserc` placeholder for `jr07-0003-bachelor-questionnaire`
+- [x] T005 [P] Page hosting with the headers for partner/spectator (no-referrer, no-store, noindex, CSP). *(Originally `firebase.json` for Firebase Hosting; since 002 the API container serves `web/` and sets the headers in `api/src/server.ts`. No Firebase file remains.)*
 
 ## Phase 2: Foundational
 
-- [x] T010 `api/src/repo/types.ts` repository interface (users, purchases, games, questions, answers, rounds, events, tokens, projection, snapshots) + `repo/memory.ts` in-memory implementation + `repo/firestore.ts`
-- [x] T011 [P] `api/src/auth.ts`: Firebase ID-token verification (firebase-admin), `DEV_AUTH` dev bearer, token hashing (sha256) and `X-Game-Token` lookup with role check, rate limiter (in-memory per instance)
+- [x] T010 `api/src/repo/types.ts` repository interface (users, purchases, games, questions, answers, rounds, events, tokens, projection, snapshots) + `repo/memory.ts` in-memory implementation + `repo/sqlite.ts` (production; replaced the original `repo/firestore.ts` in 002 and added `sessions` and real transactions)
+- [x] T011 [P] `api/src/auth.ts`: host session lookup (our own bearer token, stored hashed; issued by `routes/auth.ts` after a Google ID token is verified in `domain/google.ts`), `DEV_AUTH` dev bearer (refused in production), token hashing (sha256) and `X-Game-Token` lookup with role check, in-memory rate limiter. *(Originally Firebase ID-token verification on every call.)*
 - [x] T012 [P] `api/src/domain/limits.ts` + `domain/tier.ts` (limits table §6.4, free vs premium rules, `premium_revoked`), `domain/state.ts` (game state machine §4, active-game counting), unit tests
-- [x] T013 [P] `api/src/domain/projection.ts`: build the spectator summary from marked rounds; unit tests prove partner answers, guest names and unmarked rounds never appear
+- [x] T013 [P] `api/src/domain/projection.ts`: build the guest projection; tests (`api/test/spectator.test.ts`) prove that answers of unplayed questions, the current answer before the reveal, voided rounds and hidden questions never appear. *(002 widened the projection: the round on the table, revealed answers, strike-back nicknames.)*
 - [x] T014 [P] `web/src/store/idb.js` (in-house IndexedDB wrapper with versioned schema `bq` v1: games, events, outbox, divergent, meta) + tests with fake-indexeddb, including a schema-migration test
 - [x] T015 [P] `web/src/logic/queue.js` (next question, random order decided once per round, hidden questions, new questions appended), `logic/scoring.js`, `logic/penalties.js` (schemes, custom options), `logic/rules.js` (strike back, double or nothing, combinations) with tests
 - [x] T016 [P] `web/src/i18n.js` + `web/i18n/en.json` message catalogue (all host/partner/spectator strings), fallback-to-English with console warning; test
@@ -42,7 +47,7 @@
 - [x] T025 `web/curated/en.json`: 20 generic English questions with `id`, `text`, `theme`, `context` (what a good answer looks like, for translators); reviewed for tone
 - [x] T026 Host app screens in `web/src/host/`: sign-in/home (games list, New game, banner slot), new game (language, title), game overview (partner status, links with copy/share, readiness check, Start), question, penalty setup, penalty reveal, fix-up, scoreboard (filter, export JSON, share summary), settings. Port the round flow from the old `app.js` (hide/re-hide answer, Correct/Wrong, penalty screen, random order, refresh recovery)
 - [x] T027 `web/src/host/readiness.js`: versioned readiness check per spec §7 (hash, IndexedDB read-back, catalogue, simulated reload) with "Ready / Needs refresh / Failed" states; tests for the hash logic
-- [x] T028 `web/src/spectator.js` + `spectator.html`: token from fragment, 8 s conditional polling paused when hidden, stale after 20 s, clear on 404/410
+- [x] T028 `web/src/spectator.js` + `spectator.html`: token from fragment, conditional polling paused when hidden (2.5 s since 002, originally 8 s), stale after 15 s, clear on 404/410
 - [x] T029 `web/src/native/ads.js` + `web/src/logic/adGate.js`: banner on home and scoreboard only (placement allow-list), interstitial gate (active foreground seconds persisted, ≥ 3600 s, natural breaks only), UMP consent flow, fail-closed; tests for the gate
 - [x] T030 Export and share summary (text + PNG rendered on canvas), guest names omitted by default with a toggle
 
@@ -58,7 +63,7 @@
 
 ## Phase 5: US2 — Premium (P2)
 
-- [x] T050 `api/src/domain/entitlement.ts`: state machine (none/pending/active/revoked/unknown), idempotent binding, `purchase_bound_elsewhere`; `api/src/domain/play.ts`: Google Play Developer API verification behind an interface with a fake for tests; `routes/me.ts` verify/restore; `routes/internal.ts` `POST /internal/play/rtdn` (Pub/Sub push, OIDC check); tests incl. refund → revoked keeps content
+- [x] T050 `api/src/domain/entitlement.ts`: state machine (none/pending/active/revoked/unknown), idempotent binding, `purchase_bound_elsewhere`; `api/src/domain/play.ts`: Google Play Developer API verification behind an interface with a fake for tests; `routes/me.ts` verify/restore; `routes/internal.ts` `POST /internal/play/rtdn` (Play notification as a Pub/Sub push with an OIDC check; in the code and tested, but no subscription exists and nothing calls it on the box); tests incl. refund → revoked keeps content
 - [x] T051 `api/src/routes/questions.ts`: create/patch (rev bump + `confirmInvalidate`)/reorder/delete/host-answer with tier checks and the 100 limit; tests
 - [x] T052 Host app: premium screen (price from store, Buy, Restore, states, offline message), entitlement cache in meta with 24 h staleness rule, ads removed when active, read-only premium config when revoked
 - [x] T053 Host app: questions editor (add/edit with invalidation confirm/reorder/delete, curated preview + hide up to 5 for free), penalty scheme editor (custom options ≤ 6), rules toggles
@@ -76,11 +81,11 @@
 
 ## Phase 7: Polish and delivery
 
-- [x] T070 `api/src/jobs/retention.ts` + `POST /internal/jobs/retention` (warn at 83 d, delete at 90 d); in-app warning banner; tests
+- [x] T070 `api/src/jobs/retention.ts` (warn at 83 d, delete at 90 d), run every 6 hours by a timer in `api/src/server.ts`; in-app warning badge; tests. *(Originally an HTTP entry point for Cloud Scheduler, `POST /internal/jobs/retention`; removed on 2026-11-11.)*
 - [x] T071 Capacitor: `capacitor.config.ts` (appId `com.jr07.bachelorquestionnaire`, webDir `web`), `npx cap add android`, commit `android/`, plugins registered; `.github/workflows/android-release.yml` (JDK 21, SDK 36, `bundleRelease` + `assembleRelease`, sign with repo secrets, attach AAB + APK to the Release on `v*` tags; dispatch = dry run)
 - [x] T072 Translations: Codex read-only prompt with `en.json` (curated + i18n) and per-question context → `de`, `es`, `pt`, `pl`; Claude reviews each for tone, length limits and cultural fit; tests assert identical key sets and id sets
 - [x] T073 Remove the one-party app, its questions and results, the single-file build, the Cloudflare Worker and the old Pages workflow; no personal name from the original party remains anywhere in the repo (SC-007)
-- [x] T074 README rewrite (product, structure, run, deploy API from a PC with gcloud, Hosting deploy, Android release, Play Console setup steps for Jacek, secrets list); STATUS and spec updated in the same commits
+- [x] T074 README rewrite (product, structure, run, deploy, Android release, Play Console setup steps for Jacek, secrets list); STATUS and spec updated in the same commits. *(The deploy section described `gcloud` and Firebase Hosting; it now points to `deploy/README.md` and `jr07 app up`.)*
 - [x] T075 Two Codex read-only reviews (API and web, then a second pass over the fixes); real findings fixed with tests, the rest recorded as debt; merged to `main`
 
 ## Dependencies
@@ -91,3 +96,24 @@
 
 ## Parallel example
 T011, T012, T013, T014, T015, T016, T017, T019 touch different files and can be written together after T010.
+
+## Audit 2026-11-11: where the code does less than the task text
+
+Found by reading the code against this list. None of these blocks a party; they are recorded so "done" stays honest.
+Open ones are tracked in `STATUS.md` Pending as implementation debt.
+
+| Task | Text | In the code |
+|---|---|---|
+| T014 | IndexedDB tests "including a schema-migration test" | the schema is still version 1; there is no migration and no test for one |
+| T027 | readiness check with "simulated reload" and "tests for the hash logic" | hash, storage read-back, catalogue and "at least one playable question" are checked; no simulated reload, no conflict scan, no unit test for `readiness.js` |
+| T030 | share summary "text + PNG rendered on canvas", guest names "omitted by default with a toggle" | text summary only; the API export accepts `?omitGuests=true` but the app has no switch and never sends it |
+| T042 | "n new questions added to the queue" notice | `newlyPlayable()` exists in `logic/queue.js` with a test, but no screen calls it |
+| T052 | entitlement cache "with 24 h staleness rule" | the cache stores `cachedAt` but nothing reads it; the entitlement is refreshed at start/sign-in and after buy or restore |
+| T055 | offline question add kept in the outbox until acknowledged | offline, the add is refused with "Not visible to the partner yet: you are offline"; nothing is queued. Only an offline game deletion uses the outbox |
+| T061 | "divergent export screen for rejected events" | the game screen shows how many actions could not be sent; there is no export of them |
+| T018, §7 | server snapshots from the client | the API stores `snapshot` events, the app never sends one |
+| T050 | Play notifications update the entitlement | the route works in tests; on the box nothing delivers notifications and no Play credential is configured (STATUS Pending) |
+
+Fixed on 2026-11-11 (see `STATUS.md` Done): the purchase bridge read the plugin's results in the wrong shape and sent
+the order number instead of the purchase token (T019/T052), so no purchase could have been verified.
+

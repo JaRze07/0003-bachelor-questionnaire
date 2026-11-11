@@ -2,7 +2,7 @@
 
 **Feature branch**: `002-hetzner-live-web`
 **Created**: 2026-09-19
-**Status**: In implementation
+**Status**: Implemented, live since 2026-09-24 (§7). §5 was checked against the code on 2026-11-11; three rows carry an *As built* note
 **Input**: Jacek, 2026-09-19: "move to hetzner"; "organizer has the app (but let's have a web version as well) with the
 questions and filling out dares and all, but then the guests should have live tracking of what the current question
 is, what the answer is, and also look at the score and all"; "they [the organiser] are the one scoring".
@@ -81,9 +81,9 @@ Everything not mentioned here stays as specified there.
 | API | the same Hono service, one container, Node 22, on the provisioner's persistent `/data` volume |
 | Storage | **SQLite** (WAL) in one file on the box, through the existing repository interface; every mutating request runs in **one transaction**, serialised in-process |
 | Static pages | the same container serves them, so the pages and the API share one origin and need no cross-origin setup |
-| Backups | nightly online backup of the database file, 14 copies kept, plus a copy before every deploy |
-| Play verification | Google Play Developer API with a service-account key from the box's secret file |
-| Removed | Cloud Run, Firestore, Firebase Auth, Firebase Hosting, Cloud Scheduler, Pub/Sub push (purchase notifications use a pull on a timer, retention runs on a timer inside the API) |
+| Backups | nightly online backup of the database file, 14 copies kept, plus a copy before every deploy. *As built:* the nightly backup runs inside the container; the copy before a deploy is a manual step in `deploy/README.md`, nothing takes it automatically |
+| Play verification | Google Play Developer API with a service-account key from the box's secret file. *As built:* the code calls the API with Google application-default credentials, but no credential is configured (the organisation forbids service-account keys and app containers get no host files), so verification is not working yet; the path is an open item in `STATUS.md` |
+| Removed | Cloud Run, Firestore, Firebase Auth, Firebase Hosting, Cloud Scheduler, Pub/Sub push (purchase notifications use a pull on a timer, retention runs on a timer inside the API). *As built:* retention, session clean-up and backups run on timers inside the API. The pull for purchase notifications was not built; the old push route is still in the code and unused, so a refund is seen only when that purchase is verified again |
 
 Why SQLite and not Postgres: one process, a few hundred games a month, and a repository interface that already
 hides the store. It is testable in CI without a service, it has real transactions (which closes the transactional

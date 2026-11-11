@@ -2,7 +2,8 @@
 
 **Feature branch**: `001-bachelor-questionnaire`
 **Created**: 2026-09-13 · **Revised**: 2026-09-14 (v3.1: Codex critique v3 merged, see §15)
-**Status**: Draft v3.1, ready for planning. Product decisions settled (§11, §12); one open decision (D3 purchases plumbing) and operational prerequisites for Jacek
+**Status**: Implemented: v1 merged to `main` on 2026-09-16, live on the JR07 box since 2026-09-24. Product decisions settled (§11, §12); operational prerequisites for Jacek are in `STATUS.md`
+**Amended by**: `specs/002-hetzner-live-web/spec.md` (2026-09-19): own server instead of Google Cloud, the host app also in a browser, the live guest view, Google sign-in exchanged for our own session. The passages it changed (§3, §5.5, FR-014, §8, §9, D1, D5) were rewritten here on 2026-11-11 to say what runs today; where the code does less than this spec asks, the paragraph ends with an *As built* note
 **Input**: Jacek's product direction (2026-09-13), Codex critiques (`codex-spec-review.md`, `codex-spec-review-v3.md`), Jacek's answers via the dashboard (2026-09-14), rules research (§10)
 
 ---
@@ -11,9 +12,10 @@
 
 A party game for bachelor and bachelorette parties. Before the party the **partner** answers a set of
 questions about themselves through a private web link (no app needed). At the party the **host** runs the
-game from the **mobile app**: asks the **player** (the guest of honour) the same questions, reveals the
-partner's answer, and a wrong answer costs a drink or a dare. Guests can follow the score on a **spectator
-link**.
+game from the **mobile app** (or, since 002, any browser): asks the **player** (the guest of honour) the same
+questions, reveals the partner's answer, and a wrong answer costs a drink or a dare. Guests follow the game live on
+a **guest link** (called the spectator link in this spec): the question on the table, the dare, the partner's answer
+once the host reveals it, and the score.
 
 The repo today holds a hand-built web version for one party. This spec turns it into a product on the
 app stores: a **free tier** with curated question sets in five languages and light ads, and a one-off
@@ -51,13 +53,14 @@ was deployed by hand without a reproducible login.
 
 | Role | Surface | Account | Sees | Can do |
 |---|---|---|---|---|
-| **Host** | mobile app (Android first, iOS when an Apple developer account exists) | yes: Google sign-in on Android, Sign in with Apple on iOS | everything | create games, edit (tier permitting), send links, run rounds, fix results, export, delete, buy premium |
+| **Host** (organiser) | Android app **or the web app at the site root** (iOS when an Apple developer account exists) | yes: Google sign-in (Sign in with Apple with iOS) | everything | create games, edit (tier permitting), send links, run and score rounds, fix results, export, delete, buy premium (in the app) |
 | **Partner** | web link on their phone | none | only the questions and their own answers | answer, save progress, answer questions added later |
 | **Player** | none | none | nothing | answers aloud |
-| **Spectator** | web link | none | live score and the questions played so far | nothing |
+| **Spectator** (guest) | web link | none | the round on the table, the partner's answer once revealed, dares, score and the rounds played | nothing |
 
 The host account is the anchor for premium (§6.3) and for running the same game from a replacement phone.
-Partner and spectator surfaces are plain web pages served from the same project; they never require an install.
+Partner and spectator surfaces are plain web pages served by the same server as the API; they never require an
+install.
 
 **Ownership and link authority.** Each game has exactly one owning host account; ownership is not transferable
 in v1. Partner and spectator links are bearer credentials: whoever holds a valid link gets that link's scoped
@@ -128,8 +131,9 @@ non-blank answer.
 - Signs in on the new phone (online); games and premium follow the account. The game opens read-only with the last server sync time and a **Take over** button. Taking over is an explicit, confirmed action, never a side effect of signing in; the confirmation warns that rounds not yet synced from the old phone will be missing and that an old phone still offline can keep playing locally until it reconnects (§7 lease epoch).
 
 ### 5.5 Spectators (P1)
-- Spectator link shows the score (correct / wrong) and, for each round already marked by the host: question text, result, penalty type/label, doubled flag. **Never the partner's answer, host notes or strike-back guest names.**
-- Read-only, polls every ~8 s while the page is visible (paused in the background), sends an ETag, shows "last updated hh:mm" and a stale notice after 20 s without a successful response. Fix-up corrections appear on the next poll. After deletion or revocation the page clears what it showed and says "link no longer available".
+Replaced by 002 §3 (live guest view). What runs:
+- The link shows the **round on the table** as soon as the host starts it (number, theme, question, penalty, doubled flag), the partner's answer **only from the moment the host reveals it** on their own screen or marks the round, the score, and every marked round with question, answer, result, penalty, doubled flag and the nickname of a guest who took a strike back. **Never an answer of a question not played yet, the current answer before the reveal, hidden questions or anything about the host's account.**
+- Read-only, polls every 2.5 s while the page is visible (paused in the background), sends an ETag, shows when it was last updated and a stale notice after 15 s without a successful response. Fix-up corrections appear on the next poll. After deletion or revocation the page clears what it showed and says "link no longer available".
 
 ---
 
@@ -160,9 +164,11 @@ non-blank answer.
   the server acknowledges it. Answered new questions are appended to the end of the unplayed queue with a notice
   ("3 new questions added to the queue"); with random order on they simply join the unplayed pool. The 100-question
   limit counts current, non-deleted questions; played rounds keep their own frozen copy.
-- **FR-014** Spectator link served from a **dedicated projection** the API maintains (language, score, marked rounds
-  with question text, result, penalty label, doubled flag, revision). Partner answers, host notes, guest names,
-  unmarked rounds and deleted questions are never part of that projection (§5.5, §8).
+- **FR-014** (as amended by 002 FR-101 to FR-106) Spectator link served from a **dedicated projection** the API
+  maintains: language, title, status, score, the round on the table (its answer only once revealed), and the last
+  100 marked rounds with question, answer, result, penalty, doubled flag and strike-back nicknames, plus a revision.
+  Answers of questions not played, the current answer before the reveal, voided rounds, hidden questions and the
+  host's account are never part of that projection (§5.5, §8).
 - **FR-015** Game language controls question content and all game-specific text on host, partner and spectator
   surfaces. The device language is used only for the host app before a game is loaded (home, sign-in, settings).
   Game language can be changed until the partner opens the link, as long as no answer
@@ -180,13 +186,13 @@ non-blank answer.
 - **FR-022** Ad network: **Google AdMob** (only network that serves both stores natively; mediation can be added later). Ad unit ids live in config, not in code paths that differ per tier.
 
 ### 6.3 Premium tier
-- **FR-030** One-off **non-consumable in-app purchase** (Play Billing / StoreKit), target price tier about €1, unlocks premium **forever**. The host account (Firebase uid) and the purchasing store account are different identities: a validated purchase token is bound idempotently to the signed-in host account at purchase or restore time; a token already bound to another host account is not rebound automatically (the app shows a recovery hint without revealing the other account). Restore is guaranteed on devices with the same store ecosystem and store account; cross-store portability (Android ↔ iOS) is **not supported in v1**. The UI never claims that app sign-in proves ownership of the store account.
+- **FR-030** One-off **non-consumable in-app purchase** (Play Billing / StoreKit), target price tier about €1, unlocks premium **forever**. The host account (our account id, `g:<Google subject>`) and the purchasing store account are different identities: a validated purchase token is bound idempotently to the signed-in host account at purchase or restore time; a token already bound to another host account is not rebound automatically (the app shows a recovery hint without revealing the other account). Restore is guaranteed on devices with the same store ecosystem and store account; cross-store portability (Android ↔ iOS) is **not supported in v1**. The UI never claims that app sign-in proves ownership of the store account.
 - **FR-031** Create, edit, reorder, delete questions, up to 100 per game.
 - **FR-032** Penalty schemes: drink or dare, drink only, dare only, custom options (≤ 6).
 - **FR-033** Add questions at any time before "finished"; the partner answers them through the existing link (FR-013).
-- **FR-034** Extra rules as opt-in toggles: **strike back** and **double or nothing**, mechanics in §10. Strike-back guest names are nicknames, never shown to spectators; the export says it contains them and lets the host omit them.
+- **FR-034** Extra rules as opt-in toggles: **strike back** and **double or nothing**, mechanics in §10. Strike-back guest names are nicknames; since 002 (FR-103) the guest page shows who took the penalty. The export says it contains them and can omit them (`?omitGuests=true`). *As built:* the app has no switch for that parameter yet.
 - **FR-035** No ads.
-- **FR-036** Entitlement is a server-side state machine: `pending → active → revoked` (plus `unknown` when verification fails), keyed by store, product id and purchase token / original transaction id, processed idempotently (duplicate callbacks never create a second entitlement). Pending purchases do not unlock premium. Google real-time developer notifications (and App Store server notifications later) update the state server-side; the app refreshes entitlement on sign-in, on foregrounding while online, after purchase or restore, and before a premium mutation when its cached state is older than 24 h. **Refund or chargeback** → revoked: on the next successful sync, premium creation and editing are disabled and ads return; games already ready stay playable and exportable with their premium configuration read-only; nothing is deleted. **Cancel** = dismissal, no change. **Unsupported country** = product unavailable, not an error. **Offline** = "connect to complete the purchase"; no synthetic transaction is recorded; product loading retries only on a user action.
+- **FR-036** Entitlement is a server-side state machine: `pending → active → revoked` (plus `unknown` when verification fails), keyed by store, product id and purchase token / original transaction id, processed idempotently (duplicate callbacks never create a second entitlement). Pending purchases do not unlock premium. Google real-time developer notifications (and App Store server notifications later) update the state server-side; the app refreshes entitlement on sign-in, on foregrounding while online, after purchase or restore, and before a premium mutation when its cached state is older than 24 h. **Refund or chargeback** → revoked: on the next successful sync, premium creation and editing are disabled and ads return; games already ready stay playable and exportable with their premium configuration read-only; nothing is deleted. **Cancel** = dismissal, no change. **Unsupported country** = product unavailable, not an error. **Offline** = "connect to complete the purchase"; no synthetic transaction is recorded; product loading retries only on a user action. *As built:* the app refreshes the entitlement at start/sign-in and after a purchase or restore, not on foregrounding or by the 24 h rule; the notification route exists (`POST /v1/internal/play/rtdn`) but nothing delivers to it on the box, so a refund is noticed only when the purchase is verified again; and no Play credential is configured yet, so verification answers "the store could not confirm this yet" (STATUS Pending).
 
 ### 6.4 Limits
 | Item | Limit |
@@ -213,19 +219,19 @@ non-blank answer.
 - **Rounds are frozen at reveal.** When the host reveals a question, the round snapshots the question revision, the answer to be shown, the penalty configuration and the active rule toggles. Partner answers or edits arriving later affect only rounds not yet started.
 - **Sync authority.** Conflicts are decided by server revisions, the host **lease epoch** and per-entity revisions, never by device clocks. The server acknowledges uploaded event ids, may add partner-answer events, and never replaces accepted gameplay events from the current epoch.
 - **Host lease epoch.** The server holds one current epoch per game. **Take over** (explicit, confirmed, online only) increments it. The previous device becomes read-only the next time it contacts the server; uploads from an old epoch are rejected and kept locally as a recoverable divergent export, never merged automatically. An offline old device can keep playing locally; the takeover confirmation says so (§5.4).
-- **Readiness check.** Before the party the host runs a check bound to the app build and the game revision: current questions and chosen answers, penalty configuration and rule logic, the message catalogue for the game language, a writable IndexedDB with a read-back test, no unresolved question/answer conflicts, and a simulated reload from the cached snapshot. Result: **Ready for offline play**, or **Needs refresh** after any change to questions, answers, language, rules or the app version (the cached game stays playable from its last ready snapshot), or an explicit failure.
+- **Readiness check.** *(As built: the check covers the hash over build, revision, language, rules, questions and answers, the IndexedDB read-back, the loaded catalogue and "at least one playable question"; the conflict scan and the simulated reload are not implemented.)* Before the party the host runs a check bound to the app build and the game revision: current questions and chosen answers, penalty configuration and rule logic, the message catalogue for the game language, a writable IndexedDB with a read-back test, no unresolved question/answer conflicts, and a simulated reload from the cached snapshot. Result: **Ready for offline play**, or **Needs refresh** after any change to questions, answers, language, rules or the app version (the cached game stays playable from its last ready snapshot), or an explicit failure.
 - **Offline guarantees.** A ready game is playable, fixable, scoreable and exportable without refreshing authentication, entitlement, consent, ads, the lease or any API token. Network-dependent actions (links, partner status, spectator updates, purchase, delete acknowledgement) are shown as unavailable.
 - **Recovery.** The app recovers after a WebView reload, process termination, OS restart and a normal app upgrade; a failed upgrade never erases the last compatible snapshot; IndexedDB schema migrations are versioned and tested.
-- **Backup.** Local snapshot after each round; an opportunistic server snapshot while online (at most one per 30 s); **Export backup** is a user action that produces a file. No automatic downloads.
+- **Backup.** Local snapshot after each round; an opportunistic server snapshot while online (at most one per 30 s); **Export backup** is a user action that produces a file. No automatic downloads. *As built:* the API stores `snapshot` events (last 20 per game) but the app does not send them; the server-side safety net is the nightly database backup (§9).
 
 ---
 
 ## 8. Security, privacy, retention
 
-- **Host auth.** Store sign-in through Firebase Authentication (Google, Apple). The API verifies the ID token on every host call.
-- **Tokens.** Two scoped, high-entropy tokens per game: partner (answer own form) and spectator (read completed rounds). Stored hashed server-side, never logged, rate-limited, revocable and regenerable.
-- **Spectator embargo.** A round becomes visible to spectators only after the host marks it; the spectator endpoint serialises only the dedicated projection (FR-014).
-- **Token delivery.** Partner and spectator pages carry the token in the URL **fragment** (`partner.html#t=…`), which browsers never send to servers, and pass it to the API in a header; pages are served with `Referrer-Policy: no-referrer`, `Cache-Control: no-store` and load no third-party scripts. Tokens never appear in access logs.
+- **Host auth.** Google sign-in (the native sheet in the app, Google Identity Services in a browser; Apple with iOS). The API verifies the Google ID token **once**, against its own OAuth client ids, and answers with its own session token: 32 random bytes, stored only as a sha256 hash, valid 30 days, deleted on sign-out. Every later host call carries that session token (002 FR-121).
+- **Tokens.** Two scoped, high-entropy tokens per game: partner (answer own form) and spectator (read the guest view). Stored hashed server-side, never logged, rate-limited, revocable and regenerable.
+- **Spectator embargo.** Guests see a round's question once the host starts it and its answer only once the host reveals it or marks the round (002 FR-102); the spectator endpoint serialises only the dedicated projection (FR-014).
+- **Token delivery.** Partner and spectator pages carry the token in the URL **fragment** (`partner.html#t=…`), which browsers never send to servers, and pass it to the API in a header; pages are served with `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, a Content-Security-Policy and (in production) HSTS, and load no third-party scripts. Tokens never appear in access logs.
 - **Retention.** Content deleted **90 days after last activity**; host warned in-app 7 days before; immediate deletion on request. Payment records kept separately per statutory rules (store receipts stay with the stores).
 - **Abuse.** Custom questions and penalties are private to the game; a report link on the partner view; no public gallery in v1.
 - **Consent and notices.** Age notice (alcohol), privacy notice, ad consent (UMP / ATT), store-required data-safety declarations.
@@ -236,17 +242,18 @@ non-blank answer.
 
 | Layer | Choice (D1, §12) |
 |---|---|
-| Mobile app | **Capacitor** wrapper around the web app (same pattern as GameMatch and GiftGenie: committed `android/` project, GitHub Actions signed build), Play Store first, App Store when an Apple developer account exists |
-| Web surfaces | partner form and spectator page as static pages on **Firebase Hosting** in the same Google Cloud project |
-| API | **Cloud Run** service (Node, same shape as the JR07 dashboard), scale to zero, max 2 instances, under the workspace budget cap and kill switch |
-| Storage | **Firestore** (games, questions, answers, rounds, snapshots, entitlements) |
-| Auth | **Firebase Authentication** (Google, Apple) |
-| Google Cloud project | `jr07-0003-bachelor-questionnaire` (created with `tools/gcp-new-project.ps1` / gcloud) |
+| Mobile app | **Capacitor** wrapper around the web app (committed `android/` project, GitHub Actions signed build), Play Store first, App Store when an Apple developer account exists |
+| Web surfaces | host app, partner form and spectator page are static files in `web/`, served by the API container from the same origin as the API |
+| API | one Node 22 container (Hono) on the **JR07 box** (Hetzner), built from the root `Dockerfile` and published with `jr07 app up bachelor`; live at `https://bachelor.91-98-25-205.sslip.io` (`deploy/README.md`) |
+| Storage | **SQLite** (WAL), one file on the container's persistent `/data` volume, behind the repository interface; every mutating request is one transaction on a single in-process writer |
+| Auth | Google ID tokens verified by the API itself (`google-auth-library`) and exchanged for our own 30-day session (§8) |
+| Google | only as an identity provider (an OAuth client id, in the workspace's one remaining Google Cloud project `jr07-0000-dashboard`), for AdMob, and for the Play Developer API. Nothing of this app is hosted on Google Cloud; its project was deleted on 2026-09-27 |
 | Ads | AdMob via a Capacitor AdMob plugin + UMP consent |
 | Payments | Play Billing / StoreKit through a Capacitor purchases plugin; entitlement verified server-side and stored per app account (plugin choice: D3, §12) |
-| Live spectators | conditional polling (ETag) every ~8 s against the read-only projection endpoint |
-| Purchase notifications | Google Play real-time developer notifications via Pub/Sub push to the API (App Store server notifications later) |
-| Retention | daily Cloud Run job on Cloud Scheduler: warn at 83 days, delete at 90 |
+| Live spectators | conditional polling (ETag) every 2.5 s against the read-only projection endpoint |
+| Purchase notifications | **open.** The API has a route for Google Play real-time developer notifications as a Pub/Sub push, but no subscription is set up and Pub/Sub is not part of the box; until a path is chosen a refund is seen only on the next verification of that purchase (STATUS Pending) |
+| Retention | a timer inside the API process, every 6 hours: warn at 83 days idle, delete at 90; the same timer drops expired sessions |
+| Backups | online backup of the database file inside the container every 24 hours, 14 kept (`deploy/README.md` has the manual copy and the restore) |
 
 The Cloudflare Worker and the GitHub-repo-as-database sync are **retired**: no new Cloudflare account, the old
 Worker is deleted from the Cloudflare dashboard, and `worker.js`, `wrangler.toml` and `worker-README.md` are
@@ -289,18 +296,18 @@ listed in `research.md` in this folder.
 | 3 | Launch languages | English, German, Spanish, Portuguese, Polish; more later; Codex does the translations with context. |
 | 4 | Spectators in v1 | Yes: auto-refreshing spectator link, summary only (score and the questions played so far). |
 | 5 | Extra-rules research | Done by Claude on the web (§10). |
-| 6 | Cloudflare | Abandoned; Google Cloud instead (§9, D1). |
+| 6 | Cloudflare | Abandoned. Google Cloud was chosen instead on 2026-09-14 and was itself replaced by the JR07 box on 2026-09-19 (spec 002; §9, D1). |
 
 ---
 
 ## 12. Settled platform decisions and what is still open
 
-Settled by the constitution v2.0.0 and this spec (Codex recommended turning the former assumptions into decisions);
+Settled by the constitution (now v3.1.0) and this spec (Codex recommended turning the former assumptions into decisions);
 only operational prerequisites remain for Jacek and are tracked in `STATUS.md`.
 
-- **D1 Platform:** Firebase Hosting, Firebase Authentication, Firestore and one Cloud Run API in Google Cloud
-  project `jr07-0003-bachelor-questionnaire`. Open: project creation from a machine with gcloud, region
-  (europe-central2 like the dashboard), budget alert values.
+- **D1 Platform:** one container on the JR07 box serving the API and the pages, SQLite on its data volume, Google
+  only for sign-in, ads and Play verification (§9; decided in 002, replacing the original Google Cloud choice).
+  Open: the OAuth client id for sign-in (`STATUS.md`).
 - **D2 Mobile delivery:** Capacitor around the plain HTML/JS app; Android ships first; iOS work may proceed but
   release waits for an Apple developer account and a macOS signing environment. Open: Play Console account.
 - **D3 Purchases plumbing (open, default A):** (A) one pinned Capacitor purchase plugin + Google Play Developer API
@@ -310,11 +317,12 @@ only operational prerequisites remain for Jacek and are tracked in `STATUS.md`.
   minutes of active foreground use, persisted across restarts, only at the natural breaks in FR-021. Open: AdMob
   account and ad unit ids (test ids until then).
 - **D5 Host authentication:** online sign-in is required to create, restore, delete or take over a game; no guest
-  mode; a ready game never needs a fresh sign-in to be played. Partner and spectators never sign in.
+  mode; a ready game never needs a fresh sign-in to be played (the session lasts 30 days and an open game keeps
+  playing from the device if it lapses). Partner and spectators never sign in.
 
 ## 13. Out of scope
 
-Social features, multiple simultaneous hosts, team variants, public question gallery, web version of the host app (host is mobile-only), ad mediation in v1.
+Social features, multiple simultaneous hosts, team variants, public question gallery, ad mediation in v1. (A web version of the host app was out of scope here and was added by 002.)
 
 ---
 
@@ -328,7 +336,7 @@ Social features, multiple simultaneous hosts, team variants, public question gal
 - **SC-006** Manual regression checklist for the baseline features (§2) passes.
 - **SC-007** Zero references to the original party in code, data or docs.
 - **SC-008** Premium bought on one device is active on a second device with the same store account after "Restore purchases".
-- **SC-009** Spectator page shows a marked round within 10 seconds while the host is online and never shows a partner answer.
+- **SC-009** Spectator page shows a marked round within 10 seconds while the host is online and never shows a partner answer before the host has revealed it (tightened by 002 SC-101: question and answer within 4 s).
 - **SC-010** Automated tests cover sync (idempotent uploads, epoch rejection), queue and random order, scoring, penalties, rule combinations and entitlement transitions including refund.
 
 ---
