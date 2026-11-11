@@ -95,6 +95,8 @@ if (webDir) {
     c.header('Referrer-Policy', 'no-referrer');
     c.header('X-Content-Type-Options', 'nosniff');
     c.header('Content-Security-Policy', csp);
+    // The box serves this origin over HTTPS only (Caddy redirects plain HTTP); tell browsers to skip the redirect.
+    if (process.env.NODE_ENV === 'production') c.header('Strict-Transport-Security', 'max-age=31536000');
     // Pages that carry a bearer link must never be cached or indexed; the rest may be revalidated.
     const linkPage = /\/(partner|spectator)(\.html)?$/.test(c.req.path);
     c.header('Cache-Control', linkPage ? 'no-store' : 'no-cache');
@@ -104,6 +106,24 @@ if (webDir) {
 }
 
 const port = Number(process.env.PORT ?? 8080);
-serve({ fetch: app.fetch, port }, () => {
+const server = serve({ fetch: app.fetch, port }, () => {
   console.log(JSON.stringify({ severity: 'INFO', message: `api listening on ${port}`, repo: process.env.REPO ?? 'sqlite', devAuth: process.env.DEV_AUTH === '1' }));
 });
+
+/* ---- stopping: finish the requests in flight, close the database, exit ---- */
+// As the container's first process Node gets no default signal handling: without this a `docker stop` or
+// `jr07 app restart` waits out Docker's ten seconds and then kills the process mid-request.
+let stopping = false;
+function stop(signal: string) {
+  if (stopping) return;
+  stopping = true;
+  console.log(JSON.stringify({ severity: 'INFO', message: `stopping on ${signal}` }));
+  const exit = () => {
+    try { (repo as { close?: () => void }).close?.(); } catch { /* already closed */ }
+    process.exit(0);
+  };
+  server.close(exit);
+  setTimeout(exit, 5000).unref();   // a client that never finishes must not keep the container alive
+}
+process.on('SIGTERM', () => stop('SIGTERM'));
+process.on('SIGINT', () => stop('SIGINT'));
