@@ -59,20 +59,14 @@ export function createSqliteRepo(path = process.env.DB_PATH ?? './data/bachelor.
   const onWriter = prepared(db);
   const onReader = reader === db ? onWriter : prepared(reader);
 
+  /** Writes, always on the writer connection. */
   const q = {
-    get: db.prepare('SELECT data FROM docs WHERE kind = ? AND parent = ? AND id = ?'),
     put: db.prepare('INSERT INTO docs (kind, parent, id, data) VALUES (?, ?, ?, ?) ON CONFLICT (kind, parent, id) DO UPDATE SET data = excluded.data'),
     insert: db.prepare('INSERT INTO docs (kind, parent, id, data) VALUES (?, ?, ?, ?)'),
     del: db.prepare('DELETE FROM docs WHERE kind = ? AND parent = ? AND id = ?'),
-    list: db.prepare('SELECT data FROM docs WHERE kind = ? AND parent = ?'),
-    exists: db.prepare('SELECT 1 AS one FROM docs WHERE kind = ? AND parent = ? AND id = ?'),
     delParent: db.prepare('DELETE FROM docs WHERE kind = ? AND parent = ?'),
-    gamesByHost: db.prepare("SELECT data FROM docs WHERE kind = 'games' AND json_extract(data, '$.hostUid') = ?"),
-    gamesIdle: db.prepare("SELECT data FROM docs WHERE kind = 'games' AND json_extract(data, '$.lastActivityAt') < ? LIMIT 500"),
-    purchasesByUid: db.prepare("SELECT data FROM docs WHERE kind = 'purchases' AND json_extract(data, '$.uid') = ?"),
     sessionsExpired: db.prepare("DELETE FROM docs WHERE kind = 'sessions' AND json_extract(data, '$.expiresAt') < ?"),
     tokensOfGame: db.prepare("DELETE FROM docs WHERE kind = 'tokens' AND json_extract(data, '$.gameId') = ?"),
-    snapshotsOf: db.prepare("SELECT id, data FROM docs WHERE kind = 'snapshots' AND parent = ? ORDER BY json_extract(data, '$.createdAt') DESC"),
   };
 
   /* ---- transactions: one writer at a time, real BEGIN/COMMIT ---- */

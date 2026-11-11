@@ -1,4 +1,5 @@
-// Spectator page: score and played rounds only. Polls every 8 s while visible, with an ETag.
+// Guest page: the round on the table, the score and the played rounds. Polls every 2.5 s while visible,
+// with an ETag; the partner's answer arrives only once the organiser has revealed it.
 import { createApi } from './api.js';
 import { makeTranslator } from './i18n.js';
 import { $, el, timeAgo } from './host/ui.js';

@@ -1,6 +1,6 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-/** The host app wraps the same `web/` bundle that Firebase Hosting serves. */
+/** The host app wraps the same `web/` bundle that the API container serves to browsers. */
 const config: CapacitorConfig = {
   appId: 'com.jr07.bachelorquestionnaire',
   appName: 'Bachelor Questionnaire',

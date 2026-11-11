@@ -63,7 +63,7 @@ export async function applyNotification(repo: Repo, play: PlayVerifier, token: s
   const user = await repo.users.get(p.uid);
   if (!user) return false;
   const result = await play.verify(p.productId, token);
-  // The store was unreachable: let Pub/Sub retry instead of acknowledging a refund we could not confirm.
+  // The store was unreachable: let the sender retry instead of acknowledging a refund we could not confirm.
   if (result.state === 'unknown') throw new TransientVerification('store unreachable');
   const now = nowIso();
   p.state = result.state; p.verifiedAt = now; p.raw = result.raw ?? p.raw;

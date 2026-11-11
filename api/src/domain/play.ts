@@ -27,9 +27,10 @@ export function fakePlayVerifier(overrides = new Map<string, PremiumState>()): P
 }
 
 /**
- * Real verifier: Play Developer API `purchases.products.get`, called with a service-account access token.
- * GOOGLE_APPLICATION_CREDENTIALS points at the key file on the box; the account must be linked in the
- * Play Console (API access). PLAY_PACKAGE_NAME names the app.
+ * Real verifier: Play Developer API `purchases.products.get`, called with Google application-default
+ * credentials for an account linked in the Play Console (API access). PLAY_PACKAGE_NAME names the app.
+ * No such credential exists on the box yet (STATUS.md, Play Console item), so every check there answers
+ * `unknown` and the purchase route reports `verification_unavailable`.
  */
 export function createPlayVerifier(): PlayVerifier {
   if (process.env.DEV_AUTH === '1' || process.env.PLAY_FAKE === '1') return fakePlayVerifier();

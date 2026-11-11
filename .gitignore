@@ -5,8 +5,6 @@ dist/
 *.keystore
 *.jks
 keystore-password.txt
-.firebase/
-firebase-debug.log
 # Capacitor generated
 android/app/src/main/assets/public/
 android/app/src/main/assets/capacitor.config.json

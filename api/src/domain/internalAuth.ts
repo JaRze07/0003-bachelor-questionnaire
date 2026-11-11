@@ -1,8 +1,9 @@
 import { unauthorized } from '../errors.js';
 
 /**
- * Pub/Sub push and Cloud Scheduler call the API with an OIDC token for the service account named in
- * INTERNAL_SA_EMAIL and audience INTERNAL_AUDIENCE (the service URL). Dev: `Bearer dev:internal`.
+ * Callers of /v1/internal (today only a Pub/Sub push with Play purchase notifications) present a Google OIDC
+ * token for the service account named in INTERNAL_SA_EMAIL, with audience INTERNAL_AUDIENCE (the public URL
+ * of this API). Neither is set on the box, so the routes answer 401 there. Dev: `Bearer dev:internal`.
  */
 export async function verifyInternal(header: string | undefined): Promise<void> {
   const m = /^Bearer\s+(.+)$/i.exec(header ?? '');

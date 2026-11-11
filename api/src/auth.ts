@@ -86,7 +86,7 @@ export function gameTokenAuth(repo: Repo, role: TokenRole): MiddlewareHandler<{ 
   };
 }
 
-/* ---------- Rate limiting (per instance; Cloud Run runs at most 2) ---------- */
+/* ---------- Rate limiting (in memory: the API is one process, so the counts are exact) ---------- */
 
 const buckets = new Map<string, number[]>();
 

@@ -57,7 +57,7 @@ describe('premium entitlement', () => {
 
   it('rejects internal routes without the internal bearer', async () => {
     const h = harness();
-    const res = await h.app.fetch(new Request('https://api.test/v1/internal/jobs/retention', { method: 'POST' }));
+    const res = await h.app.fetch(new Request('https://api.test/v1/internal/play/rtdn', { method: 'POST' }));
     expect(res.status).toBe(401);
   });
 });

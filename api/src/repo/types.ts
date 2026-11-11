@@ -1,5 +1,6 @@
-// Repository interface: everything the API stores. Two implementations: Firestore (production)
-// and in-memory (tests, local dev with REPO=memory). Timestamps are ISO-8601 strings everywhere.
+// Repository interface: everything the API stores. Two implementations: SQLite (production, and the
+// default in tests) and in-memory (TEST_REPO=memory, local dev with REPO=memory). Timestamps are
+// ISO-8601 strings everywhere.
 
 export type Language = 'en' | 'de' | 'es' | 'pt' | 'pl';
 export const LANGUAGES: Language[] = ['en', 'de', 'es', 'pt', 'pl'];

@@ -4,7 +4,6 @@ import type { AppDeps } from '../app.js';
 import type { Vars } from '../auth.js';
 import { verifyInternal } from '../domain/internalAuth.js';
 import { applyNotification, TransientVerification } from '../domain/entitlement.js';
-import { runRetention } from '../jobs/retention.js';
 
 const pubsubBody = z.object({ message: z.object({ data: z.string(), messageId: z.string().optional() }) });
 
@@ -12,7 +11,12 @@ export function internalRoutes({ repo, play }: AppDeps) {
   const r = new Hono<{ Variables: Vars }>();
   r.use('*', async (c, next) => { await verifyInternal(c.req.header('authorization')); await next(); });
 
-  /** Google Play real-time developer notifications (Pub/Sub push). Always 204 after recording. */
+  /**
+   * Google Play real-time developer notifications, as a Pub/Sub push. 204 once recorded.
+   * Not wired up on the box: it needs a Pub/Sub push subscription and the two INTERNAL_* settings
+   * (domain/internalAuth.ts). Until then every call is refused and a refund reaches us only when the
+   * purchase is verified again.
+   */
   r.post('/play/rtdn', async (c) => {
     const b = pubsubBody.parse(await c.req.json());
     let note: { oneTimeProductNotification?: { purchaseToken?: string; notificationType?: number }; voidedPurchaseNotification?: { purchaseToken?: string; refundType?: number } } = {};
@@ -30,8 +34,6 @@ export function internalRoutes({ repo, play }: AppDeps) {
     }
     return c.body(null, 204);
   });
-
-  r.post('/jobs/retention', async (c) => c.json(await runRetention(repo)));
 
   return r;
 }

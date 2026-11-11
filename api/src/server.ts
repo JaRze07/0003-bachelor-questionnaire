@@ -24,7 +24,7 @@ const app = createApp({
   },
 });
 
-/* ---- housekeeping that used to need Cloud Scheduler: it now runs inside the one process ---- */
+/* ---- housekeeping (retention, expired sessions, backups) runs on timers inside the one process ---- */
 const HOUR = 3600_000;
 
 async function housekeeping() {
