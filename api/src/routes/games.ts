@@ -10,6 +10,7 @@ import { LIMITS } from '../domain/limits.js';
 import { assertSettingsAllowed, defaultSettings, isPremium, requirePremium, tierOf } from '../domain/tier.js';
 import { assertTransition, countsTowardLimit } from '../domain/state.js';
 import { answeredIds, loadFull, playableQuestions, refreshDerived } from '../service.js';
+import { retentionWarningCurrent } from '../jobs/retention.js';
 
 export const WEB_BASE = () => (process.env.WEB_BASE ?? 'http://localhost:5173').replace(/\/+$/, '');
 export const linkFor = (role: TokenRole, token: string) => `${WEB_BASE()}/${role}.html#t=${token}`;
@@ -88,7 +89,8 @@ export function gameRoutes(deps: AppDeps) {
       games: games.map((g) => ({
         id: g.id, title: g.title, status: g.status, language: g.language, tier: g.tier, counts: g.counts, epoch: g.epoch,
         partner: { opened: Boolean(g.partnerOpenedAt), answered: g.counts.answered, total: g.counts.questions, newUnanswered: Math.max(0, g.counts.questions - g.counts.answered) },
-        lastActivityAt: g.lastActivityAt, createdAt: g.createdAt, updatedAt: g.updatedAt, retentionWarnedAt: g.retentionWarnedAt,
+        lastActivityAt: g.lastActivityAt, createdAt: g.createdAt, updatedAt: g.updatedAt,
+        retentionWarnedAt: retentionWarningCurrent(g) ? g.retentionWarnedAt : undefined,
       })),
     });
   });
