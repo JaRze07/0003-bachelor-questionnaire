@@ -32,13 +32,16 @@ export async function initAds() {
   }
 }
 
-export async function syncBanner(screen, premium) {
+export async function syncBanner(screen, premium, hostname = location.hostname) {
   const p = plugin();
   const show = bannerAllowed(screen, premium);
   if (!p) {
+    // No ad SDK in a browser. The dashed stand-in box marks where the banner sits while developing; the
+    // deployed web version shows no ads and no stand-in either (spec 002 FR-122).
+    const local = hostname === 'localhost' || hostname === '127.0.0.1';
     for (const id of ['ad-slot', 'ad-slot-score']) {
       const slot = document.getElementById(id);
-      if (slot) slot.hidden = !show;
+      if (slot) slot.hidden = !(show && local);
     }
     return;
   }
