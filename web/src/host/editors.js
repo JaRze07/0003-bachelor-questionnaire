@@ -230,7 +230,7 @@ export async function renderPremium() {
 async function doBuy() {
   const res = await buy(state.api);
   if (res?.error) {
-    const messages = { offline: 'premium.offline', unavailable: 'premium.unavailable', bound_elsewhere: 'premium.boundElsewhere', cancelled: null, failed: 'error.generic' };
+    const messages = { offline: 'premium.offline', unavailable: 'premium.unavailable', bound_elsewhere: 'premium.boundElsewhere', unconfirmed: 'premium.pending', cancelled: null, failed: 'error.generic' };
     const key = messages[res.error];
     $('premium-error').textContent = key ? t(key) : '';
     return;
