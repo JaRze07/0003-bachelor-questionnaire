@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { bodyLimit } from 'hono/body-limit';
 import type { Repo } from './repo/types.js';
 import type { Vars } from './auth.js';
 import { ApiError } from './errors.js';
@@ -19,6 +20,12 @@ import { authRoutes } from './routes/auth.js';
 
 export interface AppDeps { repo: Repo; play: PlayVerifier; google: GoogleVerifier; curated: (lang: string) => Promise<CuratedQuestion[] | null> }
 export interface CuratedQuestion { id: string; text: string; theme?: string }
+
+/**
+ * Largest request body the API reads. The biggest legitimate one is an event upload carrying a snapshot
+ * (512 KiB, routes/events.ts) next to a batch of ordinary events, which are a few hundred bytes each.
+ */
+export const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 export function createApp(deps: AppDeps) {
   const app = new Hono<{ Variables: Vars }>();
@@ -42,17 +49,28 @@ export function createApp(deps: AppDeps) {
 
   app.get('/healthz', (c) => c.json({ ok: true }));
 
+  // Nothing is parsed, and no memory is spent, on a body larger than any request the app can make.
+  app.use('/v1/*', bodyLimit({
+    maxSize: MAX_BODY_BYTES,
+    onError: (c) => c.json({ error: { code: 'payload_too_large', message: 'Request body is too large' } }, 413),
+  }));
+
   /**
    * Every mutating request is one transaction: either all of its writes land or none. Hono turns a thrown
    * error into a response inside `next()`, so the failure is read from `c.error` and converted into a rollback.
    * Routes that call the store's network (purchases, store notifications) manage their own short transactions,
    * because nothing should hold the writer while it waits for Google.
+   *
+   * The body is read in full before the transaction opens. There is one writer for the whole database, so a
+   * phone uploading slowly from a party with poor signal (or a client stalling on purpose) would otherwise
+   * hold up every other organiser and partner for as long as its upload takes.
    */
   class Rollback extends Error {}
   app.use('/v1/*', async (c, next) => {
     const path = c.req.path;
     const reads = c.req.method === 'GET' || c.req.method === 'OPTIONS' || c.req.method === 'HEAD';
     if (reads || path.includes('/me/purchases') || path.includes('/internal/') || path.startsWith('/v1/auth/')) return next();
+    await c.req.text();
     try {
       await deps.repo.tx(async () => {
         await next();

@@ -49,6 +49,64 @@ describe('one request, one transaction', () => {
   });
 });
 
+describe('request bodies and the single writer', () => {
+  it('does not hold the writer while a request body is still arriving', async () => {
+    const h = harness();
+    const g = await seedGame(h, { answer: false });
+    const [q1, q2] = g.questions;
+    const answer = (text: string) => JSON.stringify({ text, questionRev: 1, baseRev: 0 });
+
+    // A partner on a bad connection: the request has started (headers and length are in), the body has not
+    // arrived yet.
+    let finishUpload!: () => void;
+    const slowBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        finishUpload = () => { controller.enqueue(new TextEncoder().encode(answer('slow'))); controller.close(); };
+      },
+    });
+    const slow = h.app.fetch(new Request(`https://api.test/v1/p/answers/${q1.id}`, {
+      method: 'PUT', body: slowBody, duplex: 'half',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': String(Buffer.byteLength(answer('slow'))), 'X-Game-Token': g.partner },
+    } as RequestInit));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // Everybody else keeps writing in the meantime.
+    const fast = await Promise.race([
+      h.token(`/p/answers/${q2.id}`, g.partner, { method: 'PUT', body: answer('fast'), headers: { 'Content-Type': 'application/json' } }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1000)),
+    ]);
+    expect(fast?.status).toBe(200);
+
+    finishUpload();
+    expect((await slow).status).toBe(200);
+    expect((await h.repo.answers.get(g.id, q1.id))!.text).toBe('slow');
+    expect((await h.repo.answers.get(g.id, q2.id))!.text).toBe('fast');
+  });
+
+  it('refuses a body larger than anything the app sends, before reading it', async () => {
+    const h = harness();
+    const g = await seedGame(h, { answer: false });
+    const { MAX_BODY_BYTES } = await import('../src/app.js');
+    const huge = JSON.stringify({ epoch: 1, deviceId: 'dev-1', events: [], padding: 'x'.repeat(MAX_BODY_BYTES) });
+
+    const declared = await h.host(`/games/${g.id}/events`, { method: 'POST', body: huge, headers: { 'Content-Type': 'application/json', 'Content-Length': String(Buffer.byteLength(huge)) } });
+    expect(declared.status).toBe(413);
+    expect((await declared.json() as any).error.code).toBe('payload_too_large');
+
+    // The same body with no declared length (chunked) is counted as it arrives.
+    const chunked = await h.app.fetch(new Request(`https://api.test/v1/games/${g.id}/events`, {
+      method: 'POST', duplex: 'half',
+      body: new ReadableStream<Uint8Array>({ start(c) { c.enqueue(new TextEncoder().encode(huge)); c.close(); } }),
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer dev:u1' },
+    } as RequestInit));
+    expect(chunked.status).toBe(413);
+
+    // An ordinary upload still goes through.
+    const ok = await h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [] } });
+    expect(ok.status).toBe(200);
+  });
+});
+
 describe('read isolation on a real database file', () => {
   it('a reader outside the transaction never sees uncommitted writes', async () => {
     const { mkdtempSync, rmSync } = await import('node:fs');
