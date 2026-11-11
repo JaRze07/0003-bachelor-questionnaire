@@ -13,7 +13,7 @@ import { loadFull, refreshDerived, type FullGame } from '../service.js';
 const EVENT_TYPES: EventType[] = ['round.start', 'round.penalty', 'round.reveal', 'round.mark', 'round.strikeBack', 'round.double', 'round.fixup', 'game.finish', 'snapshot'];
 
 const penaltySchema = z.object({ type: z.enum(['drink', 'dare', 'custom', 'none']), label: z.string().max(LIMITS.penaltyLabel).default(''), description: z.string().max(LIMITS.penaltyDescription).default('') });
-/** Journal and round ids become Firestore document ids, so '/' and friends are not allowed. */
+/** Journal and round ids are storage keys and appear in exports and logs: plain ids only. */
 const safeId = z.string().min(8).max(64).regex(/^[A-Za-z0-9_-]+$/);
 const eventSchema = z.object({
   id: safeId,
@@ -24,9 +24,16 @@ const eventSchema = z.object({
 });
 const body = z.object({ epoch: z.number().int().positive(), deviceId: z.string().min(4).max(80), events: z.array(eventSchema).max(200) });
 
-/** Firestore documents stop at 1 MiB; refuse oversized payloads before anything is written. */
+/** Every event is one stored row; refuse oversized payloads before anything is written. */
 const MAX_EVENT_BYTES = 64 * 1024;
 const MAX_SNAPSHOT_BYTES = 512 * 1024;
+
+/**
+ * What the organiser's device froze when it started the round offline. It ends up on the guests' page, so it is
+ * held to the same limits as a question and an answer; a field that does not fit is replaced by the server's copy.
+ */
+const frozenText = z.string().min(1).max(LIMITS.questionText);
+const frozenAnswer = z.object({ text: z.string().max(LIMITS.answerText), source: z.enum(['partner', 'host', 'none']) });
 
 const str = (v: unknown, max = 500) => (typeof v === 'string' ? v.slice(0, max) : '');
 const bytes = (v: unknown) => Buffer.byteLength(JSON.stringify(v ?? null));
@@ -60,11 +67,12 @@ export function applyEvent(full: FullGame, e: GameEvent): boolean {
       if (round) return true; // already applied
       const q = questions.find((x) => x.id === str(p.questionId, 64));
       if (!q || game.hiddenQuestionIds.includes(q.id)) return false;
-      const client = p.frozen as Partial<FrozenRound> | undefined;
-      const ans = answerFor(q, answers.find((a) => a.questionId === q.id) ?? null);
+      const client = (typeof p.frozen === 'object' && p.frozen !== null ? p.frozen : {}) as Record<string, unknown>;
+      const text = frozenText.safeParse(client.text);
+      const answer = frozenAnswer.safeParse(client.answer);
       const frozen: FrozenRound = {
-        questionRev: q.rev, text: client?.text ?? q.text, theme: q.theme,
-        answer: client?.answer ?? ans,
+        questionRev: q.rev, text: text.success ? text.data : q.text, theme: q.theme,
+        answer: answer.success ? answer.data : answerFor(q, answers.find((a) => a.questionId === q.id) ?? null),
         penaltyScheme: game.settings.penaltyScheme, rules: { ...game.settings.rules },
       };
       const penalty = penaltySchema.safeParse(p.penalty);

@@ -26,6 +26,33 @@ describe('event upload and lease', () => {
     expect(round.frozen.answer.text).toBe(`answer ${g.questions[0].id}`);
   });
 
+  it('keeps what the organiser\'s device froze offline, as long as it fits a question and an answer', async () => {
+    const h = harness();
+    const g = await seedGame(h); await start(h, g);
+    const start1 = (n: number, frozen: unknown) => h.host(`/games/${g.id}/events`, { json: { epoch: 1, deviceId: 'dev-1', events: [
+      ev('round.start', n, { roundId: `round-${n}`, questionId: g.questions[n - 1].id, frozen }),
+      ev('round.mark', n + 100, { roundId: `round-${n}`, result: 'wrong' }),
+    ] } });
+
+    // the device's copy wins: the partner may have changed the answer since the round was started offline
+    await start1(1, { text: 'As asked at the table?', answer: { text: 'as revealed', source: 'partner' } });
+    // anything that is not a question or an answer falls back to the server's copy, field by field
+    await start1(2, { text: { html: '<b>x</b>' }, answer: 'not an object' });
+    await start1(3, { text: 'x'.repeat(301), answer: { text: 'y'.repeat(501), source: 'partner' } });
+    await start1(4, { text: 'Fine?', answer: { text: 'ok', source: 'made-up' } });
+    await start1(5, 'not an object');
+
+    const rounds = await h.repo.rounds.list(g.id);
+    expect(rounds.map((r) => r.frozen.text)).toEqual(['As asked at the table?', g.questions[1].text, g.questions[2].text, 'Fine?', g.questions[4].text]);
+    expect(rounds.map((r) => r.frozen.answer)).toEqual([
+      { text: 'as revealed', source: 'partner' },
+      ...[1, 2, 3, 4].map((i) => ({ text: `answer ${g.questions[i].id}`, source: 'partner' })),
+    ]);
+    // and the guests' page, which is built from these rounds, only ever gets strings
+    const page = await h.token('/s/summary', g.spectator).then((r) => r.json()) as any;
+    for (const r of page.rounds) { expect(typeof r.question).toBe('string'); expect(typeof r.answer).toBe('string'); }
+  });
+
   it('rejects uploads from an old epoch after a takeover', async () => {
     const h = harness();
     const g = await seedGame(h); await start(h, g);
