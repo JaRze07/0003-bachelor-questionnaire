@@ -58,7 +58,6 @@ export async function drainOutbox(api) {
 
 /** Pull the server copy into the local snapshot without discarding unsynced local rounds. */
 export async function pullGame(api, snapshot) {
-  await pendingEvents(snapshot.gameId); // keeps the read in one place for tests
   const server = await api.get(`/games/${snapshot.gameId}`);
   return (await mergeServer(snapshot.gameId, (current) => {
     // A response older than what is already stored is dropped rather than applied.

@@ -8,6 +8,8 @@ export const uuid = () => (globalThis.crypto?.randomUUID
 
 export const loadGame = (gameId) => get('games', gameId);
 export const listGames = () => getAll('games');
+/** Games cached on this device that belong to `uid`: a second account on a shared device sees only its own. */
+export const listGamesOf = async (uid) => (await getAll('games')).filter((g) => g.game && g.game.hostUid === uid);
 
 export async function saveGame(snapshot) {
   await put('games', snapshot);
@@ -78,9 +80,12 @@ export function mergeAnswers(current = {}, incoming = {}) {
   return out;
 }
 
+/** Unsent events of one game, oldest first. Read through the [gameId, seq] index: acknowledged events stay
+ *  in the store, so a scan of everything would grow with every game ever played on the device. */
 export async function pendingEvents(gameId, limit = 200) {
-  const all = await getAll('events');
-  return all.filter((e) => e.gameId === gameId && !e.acked).sort((a, b) => a.seq - b.seq).slice(0, limit);
+  const range = IDBKeyRange.bound([gameId, 0], [gameId, Number.MAX_SAFE_INTEGER]);
+  const rows = await tx('events', 'readonly', (s, _t, w) => w(s.events.index('byGameSeq').getAll(range)));
+  return rows.filter((e) => !e.acked).slice(0, limit);
 }
 
 export async function markAcked(ids) {

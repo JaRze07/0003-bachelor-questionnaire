@@ -7,7 +7,7 @@ import { readinessState, runReadiness } from './host/readiness.js';
 import { currentUser, mountGoogleButton, signIn, signInMode, signOut } from './native/auth.js';
 import { countUse, initAds, maybeInterstitial, syncBanner } from './native/ads.js';
 import { copy, deviceId, deviceLabel, downloadJson, trackForeground } from './native/device.js';
-import { divergentEvents, loadGame, saveGame } from './store/journal.js';
+import { divergentEvents, listGamesOf, saveGame } from './store/journal.js';
 import { drainOutbox } from './store/sync.js';
 import { deviceLanguage } from './i18n.js';
 
@@ -91,8 +91,7 @@ async function renderHome() {
   } catch (err) {
     if (!err.offline) throw err;
     state.online = false;
-    const local = await import('./store/journal.js').then((m) => m.listGames());
-    games = local.filter((g) => g.game).map((g) => ({ ...g.game, counts: g.game.counts }));
+    games = (await listGamesOf(state.user?.uid)).map((g) => g.game);
   }
   $('games-empty').hidden = games.length > 0;
   for (const game of games) {

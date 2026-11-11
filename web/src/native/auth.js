@@ -103,4 +103,6 @@ export async function signOut() {
   try { globalThis.google?.accounts?.id?.disableAutoSelect?.(); } catch { /* not loaded */ }
   try { await plugin()?.logout?.({ provider: 'google' }); } catch { /* not signed in natively */ }
   await setMeta('session', null);
+  // The cached entitlement belongs to the account that just left; the next one must not start as premium.
+  await setMeta('entitlement', null);
 }

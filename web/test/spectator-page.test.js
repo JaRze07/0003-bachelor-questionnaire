@@ -99,6 +99,18 @@ describe('sign-in safety on a deployed server', () => {
     expect(prompt).not.toHaveBeenCalled();
   });
 
+  it('sign-out forgets the session and the cached entitlement of the account that left', async () => {
+    vi.resetModules();
+    globalThis.GOOGLE_CLIENT_ID = '';
+    const { setMeta, meta } = await import('../src/store/idb.js');
+    await setMeta('session', { token: 'dev:anna', uid: 'anna', provider: 'dev', expiresAt: null });
+    await setMeta('entitlement', { uid: 'anna', premium: { active: true, state: 'active' } });
+    const auth = await import('../src/native/auth.js');
+    await auth.signOut();
+    expect(await meta('session')).toBeNull();
+    expect(await meta('entitlement')).toBeNull();
+  });
+
   it('drops a development session that this server would reject', async () => {
     vi.resetModules();
     globalThis.GOOGLE_CLIENT_ID = '';

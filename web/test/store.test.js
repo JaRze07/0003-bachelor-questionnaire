@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { append, listGames, loadGame, markAcked, moveToDivergent, pendingEvents, saveGame, divergentEvents } from '../src/store/journal.js';
+import { append, listGames, listGamesOf, loadGame, markAcked, moveToDivergent, pendingEvents, saveGame, divergentEvents } from '../src/store/journal.js';
 import { closeDb, openDb, storageUsable, meta, setMeta } from '../src/store/idb.js';
 import { pushEvents } from '../src/store/sync.js';
 
@@ -63,6 +63,28 @@ describe('journal', () => {
     await saveGame(snapshot());
     await saveGame(snapshot({ gameId: 'g2' }));
     expect((await listGames()).map((g) => g.gameId).sort()).toEqual(['g1', 'g2']);
+  });
+
+  it('offers an account only its own cached games', async () => {
+    const owned = (gameId, hostUid) => snapshot({ gameId, game: { id: gameId, hostUid, status: 'ready', settings: { rules: {} } } });
+    await saveGame(owned('g1', 'g:anna'));
+    await saveGame(owned('g2', 'g:ben'));
+    await saveGame({ ...snapshot({ gameId: 'g3' }), game: null });          // opened, never loaded
+    expect((await listGamesOf('g:anna')).map((g) => g.gameId)).toEqual(['g1']);
+    expect((await listGamesOf('g:ben')).map((g) => g.gameId)).toEqual(['g2']);
+    expect(await listGamesOf(undefined)).toEqual([]);
+  });
+
+  it('reads pending events per game, in order, however many other games are stored', async () => {
+    await saveGame(snapshot());
+    await saveGame(snapshot({ gameId: 'g2' }));
+    const first = await append('g1', 'round.start', { roundId: 'r1' });
+    await append('g2', 'round.start', { roundId: 'other' });
+    const second = await append('g1', 'round.mark', { roundId: 'r1', result: 'correct' });
+    await markAcked([first.event.id]);
+    expect((await pendingEvents('g1')).map((e) => e.id)).toEqual([second.event.id]);
+    expect((await pendingEvents('g2')).map((e) => e.payload.roundId)).toEqual(['other']);
+    expect(await pendingEvents('nobody')).toEqual([]);
   });
 });
 
