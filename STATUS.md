@@ -2,6 +2,8 @@
 
 ## Pending
 
+- **Jacek (yes/no): publish the 2026-11-11 fixes?** They are on `main` (`5813c76`: purchase flow, writer no longer blocked by uploads) but the live site still runs the earlier build. Say **deploy** and I back up the SQLite volume, run the `jr07 app up bachelor ...` line from `deploy/README.md` on the box and check the site answers
+- **Jacek (yes/no): this repository is public.** Is that intended? Everything in it, history included, is readable by anyone. Say **private** and I switch it (one setting, reversible)
 - **Jacek:** create the Google sign-in client so organisers can log in: Google Cloud console, project **`jr07-0000-dashboard`** (the only one left) → APIs and services → Credentials → Create credentials → OAuth client id → **Web application**, authorised JavaScript origin `https://bachelor.91-98-25-205.sslip.io`, no redirect URI. Paste the client id here and I redeploy with it. Until then the sign-in screen says sign-in is not set up; the partner and guest links already work
 - **Jacek:** try it on your phone: https://bachelor.91-98-25-205.sslip.io. I have no browser here, so the screens have never been seen by a human eye. Sign-in needs the item above, but the pages, languages and layout can be judged now. The guest page is the one to look at: open it while I walk a game through on the test instance if you want to see it move
 - **Jacek:** do you want a nicer address than `bachelor.91-98-25-205.sslip.io`? Any domain you own works: point it at 91.98.25.205 and tell me the name
